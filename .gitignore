@@ -1,0 +1,21 @@
+# ===== File & thư mục tạm của Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ===== Virtual Environment (môi trường ảo) =====
+venv/
+env/
+
+# ===== File cấu hình chứa mật khẩu =====
+config.ini
+
+# ===== File IDE (VSCode, PyCharm) =====
+.vscode/
+.idea/
+
+# ===== File backup hoặc tạm =====
+*.log
+*.bak
+*.tmp

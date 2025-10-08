@@ -19,3 +19,6 @@ config.ini
 *.log
 *.bak
 *.tmp
+
+# ===== File ERD cho phần nghiệp vụ =====
+ERD/

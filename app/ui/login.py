@@ -46,7 +46,7 @@ def check_login():
 
     try:
         query = """
-            SELECT tk.TenDangNhap, nv.HoTen, tk.Role
+            SELECT tk.TenDangNhap, nv.TenNV, tk.Role
             FROM TaiKhoan tk
             LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
             WHERE tk.TenDangNhap = ?

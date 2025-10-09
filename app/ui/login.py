@@ -60,8 +60,8 @@ def check_login():
             ten_nv = ten_nv if ten_nv else "Không xác định"
             messagebox.showinfo("Thành công", f"🎉 Đăng nhập thành công!\nNgười dùng: {ten_nv}\nVai trò: {role}")
             root.destroy()  # sau này sẽ mở giao diện chính ở đây
-            from app.ui.mainmenu import MainMenu
-            MainMenu(username=ten_dang_nhap, role=role).mainloop()
+            from app.ui.mainmenu import open_mainmenu
+            open_mainmenu(username, role)
 
         else:
             messagebox.showerror("Thất bại", "❌ Tên đăng nhập hoặc mật khẩu không đúng!")

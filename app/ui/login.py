@@ -1,100 +1,101 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
-import bcrypt
-from app import db
+from tkinter import messagebox
+import pyodbc
+import configparser
 
-class LoginWindow(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Đăng nhập - Quản lý Quán Cà Phê")
-        self.geometry("450x300")
-        self.resizable(False, False)
-        self.configure(bg="#ECEFF1")  # màu nền dịu mắt
+# =====================================================
+# Đọc cấu hình kết nối từ file config.ini
+# =====================================================
+config = configparser.ConfigParser()
+config.read('config.ini', encoding='utf-8')
 
-        # ===== Header với logo =====
-        header_frame = tk.Frame(self, bg="#ECEFF1")
-        header_frame.pack(pady=10)
-        
-        # Load icon/logo (thay đường dẫn bằng icon thực tế của bạn)
-        try:
-            logo = Image.open("assets/logo.png").resize((60, 60))
-            self.logo_img = ImageTk.PhotoImage(logo)
-            tk.Label(header_frame, image=self.logo_img, bg="#ECEFF1").pack(side="left", padx=10)
-        except:
-            tk.Label(header_frame, text="☕", font=("Segoe UI", 32), bg="#ECEFF1").pack(side="left", padx=10)
+server = config['database']['server']
+database = config['database']['database']
+driver = config['database']['driver']
+trusted = config['database'].get('trusted_connection', 'yes')
 
-        tk.Label(header_frame, text="Quản lý Quán Cà Phê", font=("Segoe UI", 20, "bold"), bg="#ECEFF1").pack(side="left")
+# =====================================================
+# Kết nối đến SQL Server
+# =====================================================
+try:
+    if trusted.lower() == 'yes':
+        conn_str = f"DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;"
+    else:
+        username = config['database']['username']
+        password = config['database']['password']
+        conn_str = f"DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};"
+    
+    conn = pyodbc.connect(conn_str)
+    cursor = conn.cursor()
+    print("✅ Kết nối SQL Server thành công!")
 
-        # ===== Frame chính =====
-        frm = tk.Frame(self, bg="#ffffff", padx=30, pady=0, bd=1, relief="solid")
-        frm.pack(pady=20)
+except Exception as e:
+    messagebox.showerror("Lỗi", f"Không thể kết nối SQL Server: {e}")
+    exit()
 
-        tk.Label(frm, text="Đăng nhập", font=("Segoe UI", 16, "bold"), bg="#ffffff").grid(row=0, column=0, columnspan=3, pady=(0,15))
+# =====================================================
+# Hàm kiểm tra đăng nhập
+# =====================================================
+def check_login():
+    username = entry_username.get().strip()
+    password = entry_password.get().strip()
 
-        # Username
-        tk.Label(frm, text="Tên đăng nhập:", bg="#ffffff", anchor='w').grid(row=1, column=0, sticky='w', pady=5)
-        self.username = tk.StringVar()
-        user_entry = ttk.Entry(frm, textvariable=self.username, width=30, font=("Segoe UI", 10))
-        user_entry.grid(row=1, column=1, columnspan=2, pady=5)
+    if username == "" or password == "":
+        messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng nhập đầy đủ Tên đăng nhập và Mật khẩu!")
+        return
 
-        # Password
-        tk.Label(frm, text="Mật khẩu:", bg="#ffffff", anchor='w').grid(row=2, column=0, sticky='w', pady=5)
-        self.password = tk.StringVar()
-        self.pwd_entry = ttk.Entry(frm, textvariable=self.password, show="•", width=30, font=("Segoe UI", 10))
-        self.pwd_entry.grid(row=2, column=1, pady=5)
-        
-        # Show/hide password icon
-        self.show_pwd = False
-        show_btn = tk.Button(frm, text="👁", command=self.toggle_password, relief="flat", bg="#ffffff")
-        show_btn.grid(row=2, column=2, padx=(5,0))
+    try:
+        query = """
+            SELECT tk.TenDangNhap, nv.HoTen, tk.Role
+            FROM TaiKhoan tk
+            LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
+            WHERE tk.TenDangNhap = ?
+            AND tk.MatKhauHash = CONVERT(NVARCHAR(256), HASHBYTES('SHA2_256', ?), 2)
+        """
+        cursor.execute(query, (username, password))
+        result = cursor.fetchone()
 
-        # Buttons
-        btn_frame = tk.Frame(frm, bg="#ffffff")
-        btn_frame.grid(row=3, column=0, columnspan=3, pady=20)
-
-        login_btn = tk.Button(btn_frame, text="Đăng nhập", width=15, bg="#1976D2", fg="white", font=("Segoe UI", 10, "bold"), command=self.login)
-        login_btn.pack(side="left", padx=10)
-
-        exit_btn = tk.Button(btn_frame, text="Thoát", width=15, bg="#E53935", fg="white", font=("Segoe UI", 10, "bold"), command=self.destroy)
-        exit_btn.pack(side="left", padx=10)
-
-        # Enter key
-        self.bind('<Return>', lambda e: self.login())
-
-        # Focus ô nhập username
-        user_entry.focus()
-
-    def toggle_password(self):
-        self.show_pwd = not self.show_pwd
-        self.pwd_entry.config(show="" if self.show_pwd else "•")
-
-    def login(self):
-        user = self.username.get().strip()
-        pwd = self.password.get().strip()
-        if not user or not pwd:
-            messagebox.showwarning("Thiếu thông tin", "Vui lòng nhập tên đăng nhập và mật khẩu.")
-            return
-        row = db.fetch_one("SELECT MatKhauHash, Role, MaNV FROM TaiKhoan WHERE TenDangNhap = ?", (user,))
-        if not row:
-            messagebox.showerror("Lỗi", "Tài khoản không tồn tại.")
-            return
-        stored = row.get('MatKhauHash')
-        if stored is None:
-            messagebox.showerror("Lỗi", "Tài khoản chưa cấu hình mật khẩu.")
-            return
-        try:
-            ok = bcrypt.checkpw(pwd.encode('utf-8'), stored.encode('utf-8'))
-        except Exception:
-            ok = False
-        if ok:
-            messagebox.showinfo("Thành công", f"Đăng nhập thành công. Vai trò: {row.get('Role')}")
-            self.destroy()
-            from app.ui.mainmenu import MainMenu
-            MainMenu(username=user, role=row.get('Role'), ma_nv=row.get('MaNV')).mainloop()
+        if result:
+            ten_dang_nhap, ten_nv, role = result
+            ten_nv = ten_nv if ten_nv else "Không xác định"
+            messagebox.showinfo("Thành công", f"🎉 Đăng nhập thành công!\nNgười dùng: {ten_nv}\nVai trò: {role}")
+            root.destroy()  # sau này sẽ mở giao diện chính ở đây
         else:
-            messagebox.showerror("Lỗi", "Mật khẩu không đúng.")
+            messagebox.showerror("Thất bại", "❌ Tên đăng nhập hoặc mật khẩu không đúng!")
 
-if __name__ == "__main__":
-    window = LoginWindow()
-    window.mainloop()
+    except Exception as e:
+        messagebox.showerror("Lỗi truy vấn", f"Không thể kiểm tra tài khoản: {e}")
+
+# =====================================================
+# Giao diện Tkinter
+# =====================================================
+root = tk.Tk()
+root.title("Đăng nhập hệ thống quản lý quán cà phê")
+root.geometry("420x280")
+root.configure(bg="#f8f9fa")
+
+title_label = tk.Label(root, text="☕ ĐĂNG NHẬP HỆ THỐNG ☕", font=("Arial", 16, "bold"), bg="#f8f9fa", fg="#2b2b2b")
+title_label.pack(pady=15)
+
+frame = tk.Frame(root, bg="#f8f9fa")
+frame.pack(pady=10)
+
+# --- Nhập tên đăng nhập ---
+tk.Label(frame, text="Tên đăng nhập:", bg="#f8f9fa", font=("Arial", 12)).grid(row=0, column=0, sticky="w", padx=10, pady=8)
+entry_username = tk.Entry(frame, width=25, font=("Arial", 12))
+entry_username.grid(row=0, column=1, padx=10, pady=8)
+
+# --- Nhập mật khẩu ---
+tk.Label(frame, text="Mật khẩu:", bg="#f8f9fa", font=("Arial", 12)).grid(row=1, column=0, sticky="w", padx=10, pady=8)
+entry_password = tk.Entry(frame, width=25, show="*", font=("Arial", 12))
+entry_password.grid(row=1, column=1, padx=10, pady=8)
+
+# --- Nút đăng nhập ---
+btn_login = tk.Button(root, text="Đăng nhập", bg="#007bff", fg="white", width=18, font=("Arial", 11, "bold"), command=check_login)
+btn_login.pack(pady=10)
+
+# --- Nút thoát ---
+btn_exit = tk.Button(root, text="Thoát", bg="#dc3545", fg="white", width=18, font=("Arial", 11), command=root.destroy)
+btn_exit.pack()
+
+root.mainloop()

@@ -46,7 +46,7 @@ def check_login():
 
     try:
         query = """
-            SELECT tk.TenDangNhap, nv.TenNV, tk.Role
+            SELECT tk.TenDangNhap, nv.HoTen, tk.Role
             FROM TaiKhoan tk
             LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
             WHERE tk.TenDangNhap = ?
@@ -60,6 +60,9 @@ def check_login():
             ten_nv = ten_nv if ten_nv else "Không xác định"
             messagebox.showinfo("Thành công", f"🎉 Đăng nhập thành công!\nNgười dùng: {ten_nv}\nVai trò: {role}")
             root.destroy()  # sau này sẽ mở giao diện chính ở đây
+            from app.ui.mainmenu import MainMenu
+            MainMenu(username=ten_dang_nhap, role=role).mainloop()
+
         else:
             messagebox.showerror("Thất bại", "❌ Tên đăng nhập hoặc mật khẩu không đúng!")
 

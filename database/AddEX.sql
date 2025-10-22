@@ -90,7 +90,6 @@ VALUES
 ('TS001', N'Trá sữa trân châu', N'Trá sữa', 35000, N'Còn bán');
 GO
 
--- Thêm CaLam & ChamCong mẫu (nếu bạn muốn test chấm công)
 INSERT INTO CaLam (TenCa, GioBatDau, GioKetThuc)
 VALUES (N'Sáng', '07:00', '11:00'),
        (N'Chiều', '13:00', '17:00');
@@ -100,8 +99,6 @@ INSERT INTO ChamCong (MaNV, MaCa, NgayLam, ClockIn, ClockOut, GhiChu)
 VALUES ('NV002', 1, '2025-10-08', '2025-10-08 07:10', '2025-10-08 11:05', N'Vào muộn 10 phút');
 GO
 
--- Thêm TaiKhoan mẫu: (Lưu ý: dùng HASHBYTES để minh họa lưu hash)
--- LƯU Ý: Ở app bạn nên dùng bcrypt; đây chỉ là ví dụ sơ khai.
 INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, Role, MaNV)
 VALUES ('admin', CONVERT(NVARCHAR(256), HASHBYTES('SHA2_256', N'admin123'), 2), N'admin', 'NV001');
 GO

@@ -1,4 +1,5 @@
 # app/utils.py
+from datetime import datetime, date
 """
 Hàm tiện ích dùng chung trong app.
 """
@@ -8,7 +9,7 @@ def clear_window(root):
     for widget in root.winfo_children():
         widget.destroy()
 
-from datetime import datetime, date
+# Định dạng datetime để lưu vào db
 
 def parse_date(s):
     """
@@ -50,3 +51,45 @@ def format_for_input(d):
         if not d:
             return ""
     return d.strftime("%Y-%m-%d")
+def normalize_date_input(val):
+    """
+    Nhận val có thể là:
+      - datetime.date -> trả về chính nó
+      - datetime.datetime -> trả về .date()
+      - chuỗi 'YYYY-MM-DD' hoặc 'DD/MM/YYYY' hoặc 'YYYY/MM/DD' -> trả về datetime.date
+      - chuỗi rỗng hoặc None -> trả về None
+    Nếu không parse được -> raise ValueError
+    """
+    if val is None:
+        return None
+
+    # Nếu đã là date (không phải datetime)
+    if isinstance(val, date) and not isinstance(val, datetime):
+        return val
+
+    # Nếu là datetime
+    if isinstance(val, datetime):
+        return val.date()
+
+    # Nếu là chuỗi
+    if isinstance(val, str):
+        s = val.strip()
+        if s == "":
+            return None
+        # thử các định dạng phổ biến
+        fmts = ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y", "%Y.%m.%d")
+        for fmt in fmts:
+            try:
+                return datetime.strptime(s, fmt).date()
+            except Exception:
+                continue
+        # fallback: nếu chuỗi có time phần (iso), thử fromisoformat
+        try:
+            return datetime.fromisoformat(s).date()
+        except Exception:
+            pass
+
+        raise ValueError(f"Không nhận diện được định dạng ngày: '{val}'")
+
+    # nếu loại không được hỗ trợ
+    raise ValueError(f"Kiểu dữ liệu ngày không hợp lệ: {type(val)}")

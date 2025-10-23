@@ -52,14 +52,7 @@ def format_for_input(d):
             return ""
     return d.strftime("%Y-%m-%d")
 def normalize_date_input(val):
-    """
-    Nhận val có thể là:
-      - datetime.date -> trả về chính nó
-      - datetime.datetime -> trả về .date()
-      - chuỗi 'YYYY-MM-DD' hoặc 'DD/MM/YYYY' hoặc 'YYYY/MM/DD' -> trả về datetime.date
-      - chuỗi rỗng hoặc None -> trả về None
-    Nếu không parse được -> raise ValueError
-    """
+
     if val is None:
         return None
 
@@ -93,3 +86,27 @@ def normalize_date_input(val):
 
     # nếu loại không được hỗ trợ
     raise ValueError(f"Kiểu dữ liệu ngày không hợp lệ: {type(val)}")
+
+def generate_next_manv(cursor):
+    """
+    Tạo mã nhân viên tiếp theo (NV00x) dựa trên dữ liệu hiện có trong DB.
+    Trả về mã nhỏ nhất chưa được dùng.
+    """
+    cursor.execute("SELECT MaNV FROM NhanVien")
+    rows = [r.MaNV.strip().upper() for r in cursor.fetchall() if r.MaNV]
+
+    # Lọc các mã hợp lệ NVxxx
+    numbers = []
+    for code in rows:
+        if code.startswith("NV"):
+            try:
+                num = int(code[2:])
+                numbers.append(num)
+            except ValueError:
+                pass
+
+    next_num = 1
+    while next_num in numbers:
+        next_num += 1
+
+    return f"NV{next_num:03d}"

@@ -118,3 +118,4 @@ def open_employee_module(root):
 def go_back_to_login(root):
     from app.ui.login_frame import show_login
     show_login(root)
+

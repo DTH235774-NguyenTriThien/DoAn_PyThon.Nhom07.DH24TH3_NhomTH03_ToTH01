@@ -20,7 +20,7 @@ GO
 USE QL_CaPhe;
 GO
 
-
+ 
 -- ===== TABLE: NhanVien =====
 CREATE TABLE NhanVien (
     MaNV CHAR(6) PRIMARY KEY,

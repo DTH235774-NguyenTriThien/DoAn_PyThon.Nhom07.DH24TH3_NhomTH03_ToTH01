@@ -2,13 +2,24 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from app import db
+from tkcalendar import DateEntry
+from datetime import datetime
 from app.utils import clear_window
-
+from app.utils import normalize_date_input
 
 def show_employee_module(root, username=None, role=None):
     """Giao diện quản lý nhân viên (phiên bản frame-based)"""
     clear_window(root)
     root.title("Quản lý nhân viên")
+
+    window_width = 1200
+    window_height = 600
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    x = int((screen_width / 2) - (window_width / 2))
+    y = int((screen_height / 2) - (window_height / 2))
+    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    root.minsize(1000, 550)
 
     # ====== THANH TIÊU ĐỀ ======
     header = tk.Frame(root, bg="#3e2723", height=70)
@@ -27,7 +38,7 @@ def show_employee_module(root, username=None, role=None):
 
     ttk.Button(top_frame, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=5)
     ttk.Button(top_frame, text="➕ Thêm", command=lambda: add_employee(load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="✏️ Sửa", command=lambda: edit_employee(tree, load_data)).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="✏️ Sửa", command=lambda: edit_employee(tree, load_data, role)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="🗑️ Xóa", command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=10)
 
@@ -120,73 +131,113 @@ def show_employee_module(root, username=None, role=None):
 
 
 def add_employee(refresh):
-    """Thêm nhân viên mới (đẹp, căn chỉnh chuẩn, có combobox chức vụ)"""
+    """Thêm nhân viên mới (có chọn ngày sinh bằng calendar + combobox chức vụ)"""
     win = tk.Toplevel()
     win.title("➕ Thêm nhân viên mới")
-    win.geometry("430x480")
+    win.geometry("430x500")
     win.resizable(False, False)
     win.configure(bg="#f8f9fa")
 
-    # ====== FRAME CHÍNH ======
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=20, pady=15, fill="both", expand=True)
 
-    # Danh sách nhãn và trường
-    labels = ["Mã NV", "Họ tên", "Giới tính", "Ngày sinh (YYYY-MM-DD)",
+    labels = ["Mã NV", "Họ tên", "Giới tính", "Ngày sinh",
               "Chức vụ", "Lương cơ bản", "Trạng thái"]
     entries = {}
-
-    # Danh sách chức vụ
     positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
+    statuses = ["Đang làm", "Tạm nghỉ", "Đào tạo", "Đã nghỉ"]
 
     for i, text in enumerate(labels):
         lbl = ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa")
         lbl.grid(row=i, column=0, sticky="w", padx=8, pady=6)
 
-        # Ô nhập liệu hoặc combobox
         if text == "Chức vụ":
             cb = ttk.Combobox(form, values=positions, state="readonly", font=("Arial", 11))
-            cb.current(1)  # Mặc định là Thu ngân
+            cb.current(1)
             cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = cb
+
+        elif text == "Ngày sinh":
+            cal = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11),
+                            background="#3e2723", foreground="white", borderwidth=2)
+            cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cal
+
+        elif text == "Trạng thái":
+            cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
+            cb.set("Đang làm")  # mặc định
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+
+        elif text == "Giới tính":
+            gender_var = tk.StringVar(value="Nam")
+            frame_gender = tk.Frame(form, bg="#f8f9fa")
+            frame_gender.grid(row=i, column=1, padx=8, pady=6, sticky="w")
+
+            tk.Radiobutton(frame_gender, text="Nam", variable=gender_var, value="Nam",
+                        font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
+            tk.Radiobutton(frame_gender, text="Nữ", variable=gender_var, value="Nữ",
+                        font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
+
+            entries[text] = gender_var
+
         else:
             entry = ttk.Entry(form, font=("Arial", 11))
             entry.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = entry
 
-    # Cho phép cột 1 (textbox) mở rộng linh hoạt
     form.grid_columnconfigure(1, weight=1)
 
-    # ====== NÚT LƯU ======
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu nhân viên", command=lambda: submit()).pack(ipadx=10, ipady=5)
 
-    # ====== HÀM XỬ LÝ LƯU ======
     def submit():
         try:
-            manv = entries["Mã NV"].get().strip()
+            manv = entries["Mã NV"].get().strip().upper()
             hoten = entries["Họ tên"].get().strip()
-            gt = entries["Giới tính"].get().strip()
-            ngs = entries["Ngày sinh (YYYY-MM-DD)"].get().strip()
+            gt = entries["Giới tính"].get()
+
+            # --- Xử lý ngày sinh an toàn ---
+            raw_ngs = None
+            widget = entries["Ngày sinh"]
+            try:
+                raw_ngs = widget.get_date()
+            except Exception:
+                try:
+                    raw_ngs = widget.get()
+                except Exception:
+                    raw_ngs = None
+
+            try:
+                ngs = normalize_date_input(raw_ngs)
+            except ValueError as e:
+                messagebox.showerror("Lỗi định dạng ngày", f"Ngày sinh không hợp lệ: {e}")
+                return
+
             cv = entries["Chức vụ"].get().strip()
             luong = float(entries["Lương cơ bản"].get().strip() or 0)
             tt = entries["Trạng thái"].get().strip() or "Đang làm"
 
-            if not manv or not hoten:
-                messagebox.showwarning("Thiếu thông tin", "⚠️ Mã NV và Họ tên là bắt buộc.")
+            # --- ✅ Tự động sinh mã NV nếu trống ---
+            if not manv:
+                from app.utils import generate_next_manv
+                manv = generate_next_manv(db.cursor)
+
+            # --- ✅ Kiểm tra trùng mã NV ---
+            db.cursor.execute("SELECT COUNT(*) FROM NhanVien WHERE MaNV=?", (manv,))
+            if db.cursor.fetchone()[0] > 0:
+                messagebox.showwarning("⚠️ Trùng mã NV", f"Mã nhân viên {manv} đã tồn tại!")
                 return
 
-            if ngs:
-                ngs = datetime.strptime(ngs, "%Y-%m-%d").date()
-
+            # --- Lưu vào DB ---
             db.cursor.execute("""
                 INSERT INTO NhanVien (MaNV, HoTen, GioiTinh, NgaySinh, ChucVu, LuongCoBan, TrangThai)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (manv, hoten, gt, ngs, cv, luong, tt))
             db.conn.commit()
 
-            messagebox.showinfo("✅ Thành công", "Đã thêm nhân viên mới!")
+            messagebox.showinfo("✅ Thành công", f"Đã thêm nhân viên {manv}!")
             refresh()
             win.destroy()
 
@@ -194,53 +245,118 @@ def add_employee(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm nhân viên: {e}")
 
 
-def edit_employee(tree, refresh):
-    """Sửa thông tin nhân viên"""
+
+def edit_employee(tree, refresh, role):
+    """Sửa thông tin nhân viên (có chọn ngày sinh bằng calendar + combobox chức vụ)"""
     selected = tree.selection()
     if not selected:
-        messagebox.showwarning("Chưa chọn", "Vui lòng chọn nhân viên cần sửa!")
+        messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần sửa!")
         return
 
     values = tree.item(selected[0])["values"]
     manv = values[0]
 
     win = tk.Toplevel()
-    win.title(f"Sửa nhân viên {manv}")
-    win.geometry("400x400")
+    win.title(f"✏️ Sửa nhân viên {manv}")
+    win.geometry("430x500")
+    win.resizable(False, False)
+    win.configure(bg="#f8f9fa")
 
-    labels = ["Họ tên", "Giới tính", "Ngày sinh (YYYY-MM-DD)",
+    form = tk.Frame(win, bg="#f8f9fa")
+    form.pack(padx=20, pady=15, fill="both", expand=True)
+
+    labels = ["Họ tên", "Giới tính", "Ngày sinh",
               "Chức vụ", "Lương cơ bản", "Trạng thái"]
     entries = {}
+    positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
+    statuses = ["Đang làm", "Tạm nghỉ", "Đào tạo", "Đã nghỉ"]
+
+    # Xử lý ngày sinh định dạng dd/mm/yyyy -> datetime
     current = dict(zip(labels, values[1:]))
+    if current["Ngày sinh"]:
+        try:
+            current["Ngày sinh"] = datetime.strptime(current["Ngày sinh"], "%d/%m/%Y").date()
+        except:
+            current["Ngày sinh"] = datetime.today().date()
 
     for i, text in enumerate(labels):
-        ttk.Label(win, text=text).grid(row=i, column=0, padx=10, pady=5, sticky="w")
-        entry = ttk.Entry(win, width=30)
-        entry.grid(row=i, column=1, padx=10, pady=5)
+        lbl = ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa")
+        lbl.grid(row=i, column=0, sticky="w", padx=8, pady=6)
 
-        if text == "Ngày sinh (YYYY-MM-DD)" and current[text]:
-            try:
-                # chuyển từ dd/mm/yyyy sang yyyy-mm-dd khi mở form sửa
-                current[text] = datetime.strptime(current[text], "%d/%m/%Y").strftime("%Y-%m-%d")
-            except:
-                pass
+        if text == "Chức vụ":
+            cb = ttk.Combobox(form, values=positions, state="readonly", font=("Arial", 11))
+            cb.set(current[text])
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
 
-        entry.insert(0, current[text])
-        entries[text] = entry
+        elif text == "Ngày sinh":
+            cal = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11),
+                            background="#3e2723", foreground="white", borderwidth=2)
+            cal.set_date(current["Ngày sinh"])
+            cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cal
+
+        elif text == "Trạng thái":
+
+            state_mode = "readonly" if role == "Admin" else "disabled"
+            cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
+            # Nếu giá trị trong DB có thì hiển thị, không thì mặc định “Đang làm”
+            cb.set(current[text] if current[text] in statuses else "Đang làm")
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+
+        elif text == "Giới tính":
+            gender_var = tk.StringVar(value=current.get("Giới tính", "Nam"))
+            frame_gender = tk.Frame(form, bg="#f8f9fa")
+            frame_gender.grid(row=i, column=1, padx=8, pady=6, sticky="w")
+
+            tk.Radiobutton(frame_gender, text="Nam", variable=gender_var, value="Nam",
+                        font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
+            tk.Radiobutton(frame_gender, text="Nữ", variable=gender_var, value="Nữ",
+                        font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
+
+            entries[text] = gender_var
+
+        else:
+            entry = ttk.Entry(form, font=("Arial", 11))
+            entry.insert(0, current[text])
+            entry.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = entry
+
+    form.grid_columnconfigure(1, weight=1)
+
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
 
     def save():
         try:
             hoten = entries["Họ tên"].get().strip()
             gt = entries["Giới tính"].get().strip()
-            ngs = entries["Ngày sinh (YYYY-MM-DD)"].get().strip()
+            #
+            raw_ngs = None
+            widget = entries["Ngày sinh"]
+            try:
+                raw_ngs = widget.get_date()
+            except Exception:
+                try:
+                    raw_ngs = widget.get()
+                except Exception:
+                    raw_ngs = None
+
+            try:
+                ngs = normalize_date_input(raw_ngs)
+            except ValueError as e:
+                messagebox.showerror("Lỗi định dạng ngày", f"Ngày sinh không hợp lệ: {e}")
+                return
+            #
             cv = entries["Chức vụ"].get().strip()
             luong = float(entries["Lương cơ bản"].get().replace(",", "").strip() or 0)
             tt = entries["Trạng thái"].get().strip()
 
-            if ngs:
-                ngs = datetime.strptime(ngs, "%Y-%m-%d").date()
-            else:
-                ngs = None
+            if not hoten:
+                messagebox.showwarning("Thiếu thông tin", "⚠️ Họ tên không được để trống.")
+                return
 
             db.cursor.execute("""
                 UPDATE NhanVien
@@ -248,13 +364,13 @@ def edit_employee(tree, refresh):
                 WHERE MaNV=?
             """, (hoten, gt, ngs, cv, luong, tt, manv))
             db.conn.commit()
-            messagebox.showinfo("Thành công", "Cập nhật thông tin thành công!")
-            win.destroy()
-            refresh()
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể cập nhật: {e}")
 
-    ttk.Button(win, text="Lưu", command=save).grid(row=len(labels), column=0, columnspan=2, pady=10)
+            messagebox.showinfo("✅ Thành công", f"Đã cập nhật nhân viên {manv}.")
+            refresh()
+            win.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể cập nhật nhân viên: {e}")
 
 
 def delete_employee(tree, refresh):

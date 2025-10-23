@@ -11,6 +11,15 @@ def show_login(root):
     root.geometry("500x400")
     root.configure(bg="#d7ccc8")  # nền nâu nhẹ
 
+    window_width = 550
+    window_height = 450
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    x = int((screen_width / 2) - (window_width / 2))
+    y = int((screen_height / 2) - (window_height / 2))
+    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    root.minsize(150, 200)
+
     # Card chính
     frame = tk.Frame(root, bg="#fff8e1", bd=2, relief="groove", highlightbackground="#a1887f", highlightthickness=1)
     frame.place(relx=0.5, rely=0.5, anchor="center", width=420, height=360)

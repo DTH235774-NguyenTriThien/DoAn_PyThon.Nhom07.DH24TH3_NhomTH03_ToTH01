@@ -137,17 +137,3 @@ def close_connection():
         print("🔒 Đã đóng kết nối SQL Server.")
     except Exception as e:
         print("⚠️ Lỗi khi đóng kết nối:", e)
-
-
-# ============================================================
-# Test nhanh khi chạy file trực tiếp
-# ============================================================
-if __name__ == "__main__":
-    fetch_all("NhanVien")
-
-    print("\n🔍 Lấy thử 1 dòng dữ liệu:")
-    row = fetch_one("NhanVien", "MaNV = 'NV001'")
-    if row:
-        print(row)
-
-    close_connection()

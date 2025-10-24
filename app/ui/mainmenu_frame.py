@@ -44,7 +44,7 @@ def show_main_menu(root, username, role):
         font=("Segoe UI", 13, "bold"),
         padding=15,
         relief="flat",
-        background="#a47148",  # Nâu caramel
+        background="#a47148",
         foreground="white",
         borderwidth=0,
     )
@@ -82,8 +82,8 @@ def show_main_menu(root, username, role):
         text="🥤 Quản lý đồ uống",
         style="Coffee.TButton",
         width=25,
-        command=lambda: print("Đồ uống module"),
-    ).grid(row=0, column=1, padx=25, pady=20)
+        command=lambda: from_app_open_drinks(root)).grid(row=0, column=1, padx=25, pady=20)
+
 
     ttk.Button(
         btn_frame,
@@ -118,4 +118,9 @@ def open_employee_module(root):
 def go_back_to_login(root):
     from app.ui.login_frame import show_login
     show_login(root)
+
+def from_app_open_drinks(root):
+    from app.modules.drinks import show_drinks_module
+    show_drinks_module(root)
+
 

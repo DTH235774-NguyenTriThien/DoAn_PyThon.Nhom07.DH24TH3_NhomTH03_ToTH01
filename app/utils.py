@@ -110,3 +110,20 @@ def generate_next_manv(cursor):
         next_num += 1
 
     return f"NV{next_num:03d}"
+def generate_next_masp(cursor):
+    """
+    Sinh mã MaSP dạng SP001, SP002... dựa trên MaSP hiện có trong bảng SANPHAM.
+    """
+    cursor.execute("SELECT MaSP FROM SANPHAM")
+    rows = [r.MaSP.strip().upper() for r in cursor.fetchall() if r.MaSP]
+    nums = []
+    for code in rows:
+        if code.startswith("SP"):
+            try:
+                nums.append(int(code[2:]))
+            except Exception:
+                pass
+    next_num = 1
+    while next_num in nums:
+        next_num += 1
+    return f"SP{next_num:03d}"

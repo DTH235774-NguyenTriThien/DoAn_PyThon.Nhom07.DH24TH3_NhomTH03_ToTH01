@@ -36,11 +36,12 @@ def show_employee_module(root, username=None, role=None):
     entry_search = ttk.Entry(top_frame, textvariable=search_var, width=40)
     entry_search.pack(side="left", padx=5)
 
-    ttk.Button(top_frame, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="➕ Thêm", command=lambda: add_employee(load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="✏️ Sửa", command=lambda: edit_employee(tree, load_data, role)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="🗑️ Xóa", command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=10)
+    #ttk.Button(top_frame, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=5)
+    #ttk.Button(top_frame, text="➕ Thêm", command=lambda: add_employee(load_data)).pack(side="left", padx=5)
+    #ttk.Button(top_frame, text="✏️ Sửa", command=lambda: edit_employee(tree, load_data, role)).pack(side="left", padx=5)
+    #ttk.Button(top_frame, text="🗑️ Xóa", command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
+    #ttk.Button(top_frame, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=10)
+
 
     # ====== BẢNG HIỂN THỊ ======
     headers_vn = {
@@ -117,6 +118,19 @@ def show_employee_module(root, username=None, role=None):
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu: {e}")
+
+
+    # ✅ Sau khi có load_data(), mới tạo các nút
+    ttk.Button(top_frame, text="🔄 Tải lại", style="Close.TButton",
+               command=load_data).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="➕ Thêm", style="Add.TButton",
+               command=lambda: add_employee(load_data)).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
+               command=lambda: edit_employee(tree, load_data, role)).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
+               command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
+           command=lambda: go_back(root, username, role)).pack(side="right", padx=5)
 
 
 
@@ -374,23 +388,24 @@ def edit_employee(tree, refresh, role):
 
 
 def delete_employee(tree, refresh):
-    """Xóa nhân viên"""
     selected = tree.selection()
     if not selected:
-        messagebox.showwarning("Chưa chọn", "Vui lòng chọn nhân viên cần xóa!")
+        messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần xóa!")
         return
 
     values = tree.item(selected[0])["values"]
     manv = values[0]
 
-    if messagebox.askyesno("Xác nhận", f"Bạn có chắc muốn xóa nhân viên {manv}?"):
-        try:
-            db.cursor.execute("DELETE FROM NhanVien WHERE MaNV=?", (manv,))
-            db.conn.commit()
-            messagebox.showinfo("Thành công", "Đã xóa nhân viên.")
-            refresh()
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể xóa: {e}")
+    from app.utils import safe_delete
+    safe_delete(
+        table_name="NhanVien",
+        key_column="MaNV",
+        key_value=manv,
+        cursor=db.cursor,
+        conn=db.conn,
+        refresh_func=refresh,
+        item_label="nhân viên"
+    )
 
 
 def go_back(root, username, role):

@@ -70,3 +70,14 @@ SELECT * FROM BangLuong;
 SELECT * FROM NguyenLieu;
 SELECT * FROM CongThuc;
 SELECT * FROM InventoryMovements;
+
+INSERT INTO HoaDon (MaHD, MaNV, MaKH, TongTien, TrangThai, GhiChu)
+VALUES ('HD000002', 'NV001', 'KH001', 30000, N'Chưa thanh toán', N'Mẫu test');
+GO
+
+INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia)
+VALUES 
+('HD000002', 'SP010', 1, 30000);
+GO
+
+SELECT DonGia FROM SANPHAM WHERE MaSP='SPxxx'

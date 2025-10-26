@@ -36,12 +36,6 @@ def show_employee_module(root, username=None, role=None):
     entry_search = ttk.Entry(top_frame, textvariable=search_var, width=40)
     entry_search.pack(side="left", padx=5)
 
-    #ttk.Button(top_frame, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=5)
-    #ttk.Button(top_frame, text="➕ Thêm", command=lambda: add_employee(load_data)).pack(side="left", padx=5)
-    #ttk.Button(top_frame, text="✏️ Sửa", command=lambda: edit_employee(tree, load_data, role)).pack(side="left", padx=5)
-    #ttk.Button(top_frame, text="🗑️ Xóa", command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
-    #ttk.Button(top_frame, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=10)
-
 
     # ====== BẢNG HIỂN THỊ ======
     headers_vn = {
@@ -342,7 +336,7 @@ def edit_employee(tree, refresh, role):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
-
+    
     def save():
         try:
             hoten = entries["Họ tên"].get().strip()
@@ -406,7 +400,6 @@ def delete_employee(tree, refresh):
         refresh_func=refresh,
         item_label="nhân viên"
     )
-
 
 def go_back(root, username, role):
     """Quay lại main menu"""

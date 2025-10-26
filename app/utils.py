@@ -1,6 +1,8 @@
 # app/utils.py
 from datetime import datetime, date
 from tkinter import messagebox
+from tkinter import ttk
+import tkinter as tk
 """
 Hàm tiện ích dùng chung trong app.
 """
@@ -224,3 +226,19 @@ def recalc_invoice_total(cursor, conn, mahd):
     cursor.execute("UPDATE HoaDon SET TongTien = ? WHERE MaHD = ?", (total, mahd))
     conn.commit()
     return total
+
+def create_form_window(title, size="430x500", bg="#f8f9fa"):
+    """
+    Tạo cửa sổ form chuẩn (popup) dùng cho các module Add/Edit.
+    Trả về tuple (win, form, entries)
+    """
+    win = tk.Toplevel()
+    win.title(title)
+    win.geometry(size)
+    win.resizable(False, False)
+    win.configure(bg=bg)
+
+    form = tk.Frame(win, bg=bg)
+    form.pack(padx=20, pady=15, fill="both", expand=True)
+
+    return win, form

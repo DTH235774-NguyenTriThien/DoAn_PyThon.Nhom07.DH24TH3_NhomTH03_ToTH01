@@ -25,21 +25,6 @@ def show_invoices_module(root, username=None, role=None):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
-    # Buttons on top frame
-
-
-    ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
-                command=lambda: create_invoice_window(root, username, refresh)).pack(side="left", padx=6)
-    
-    ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
-                command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6)
-    
-    ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
-                command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
-
-    ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
-                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
-
     # Treeview
     cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai")
     tree = ttk.Treeview(root, columns=cols, show="headings", height=16)
@@ -81,6 +66,25 @@ def show_invoices_module(root, username=None, role=None):
                 tree.insert("", "end", values=(r.MaHD.strip(), ngay, r.MaNV.strip(), tong, r.TrangThai))
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tải danh sách hóa đơn: {e}")
+
+    # Buttons on top frame
+
+    ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
+               command=load_data).pack(side="left", padx=5)
+
+    ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
+                command=lambda: create_invoice_window(root, username, refresh)).pack(side="left", padx=6)
+    
+    ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
+                command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6
+                                                                               )
+    
+    ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
+                command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
+
+    ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
+                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+
 
     load_data()
 

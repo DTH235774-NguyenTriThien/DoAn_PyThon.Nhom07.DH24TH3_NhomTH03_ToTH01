@@ -92,6 +92,10 @@ def show_drinks_module(root, username=None, role=None):
                 tree.insert("", "end", values=(ma, ten, loai, gia, tt))
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu: {e}")
+
+
+    # Button on top frame 
+    
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
                command=load_data).pack(side="left", padx=5)
     ttk.Button(top, text="➕ Thêm", style="Add.TButton",

@@ -25,12 +25,20 @@ def show_invoices_module(root, username=None, role=None):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
-    # Buttons
-    ttk.Button(top, text="Tạo hóa đơn mới", command=lambda: create_invoice_window(root, username, refresh)).pack(side="left", padx=6)
-    ttk.Button(top, text="Xem chi tiết", command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6)
-    ttk.Button(top, text="Xóa hóa đơn", command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
-    ttk.Button(top, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=6)
-    ttk.Button(top, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+    # Buttons on top frame
+
+
+    ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
+                command=lambda: create_invoice_window(root, username, refresh)).pack(side="left", padx=6)
+    
+    ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
+                command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6)
+    
+    ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
+                command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
+
+    ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
+                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
 
     # Treeview
     cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai")

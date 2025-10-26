@@ -4,13 +4,19 @@ from tkinter import ttk, messagebox, simpledialog
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
-from app.utils import clear_window, generate_next_mahd, recalc_invoice_total, safe_delete
+from app.utils.utils import clear_window, generate_next_mahd, recalc_invoice_total, safe_delete, create_form_window, go_back, center_window
+from app.theme import setup_styles
 
 # ---------- SHOW MAIN INVOICE MODULE ----------
 def show_invoices_module(root, username=None, role=None):
     clear_window(root)
+    setup_styles()
     root.title("Quản lý Hóa đơn")
     root.configure(bg="#f5e6ca")
+
+    # ====== CẤU HÌNH FORM CHÍNH ======
+    center_window(root, 1200, 700, offset_y=-60)
+    root.minsize(1000, 550)
 
     header = tk.Frame(root, bg="#4b2e05", height=70)
     header.pack(fill="x")
@@ -20,13 +26,14 @@ def show_invoices_module(root, username=None, role=None):
     top = tk.Frame(root, bg="#f5e6ca")
     top.pack(fill="x", pady=6, padx=12)
 
+
     search_var = tk.StringVar()
     ttk.Label(top, text="🔎 Tìm:", background="#f5e6ca").pack(side="left", padx=(0,6))
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
     # Treeview
-    cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai")
+    cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai", "GhiChu")
     tree = ttk.Treeview(root, columns=cols, show="headings", height=16)
     headers = {
     "MaHD": "Mã HD",
@@ -34,7 +41,8 @@ def show_invoices_module(root, username=None, role=None):
     "MaNV": "Mã NV",
     "TenKH": "Khách hàng",
     "TongTien": "Tổng tiền (đ)",
-    "TrangThai": "Trạng thái"
+    "TrangThai": "Trạng thái",
+    "GhiChu": "Ghi Chú"
     }
     for c in cols:
         tree.heading(c, text=headers[c])
@@ -47,7 +55,7 @@ def show_invoices_module(root, username=None, role=None):
             for it in tree.get_children():
                 tree.delete(it)
             sql = """
-            SELECT h.MaHD, h.NgayLap, h.MaNV, k.TenKH, h.TongTien, h.TrangThai
+            SELECT h.MaHD, h.NgayLap, h.MaNV, k.TenKH, h.TongTien, h.TrangThai, h.GhiChu
             FROM HoaDon h
             LEFT JOIN KhachHang k ON h.MaKH = k.MaKH
             """
@@ -63,7 +71,15 @@ def show_invoices_module(root, username=None, role=None):
             for r in rows:
                 ngay = r.NgayLap.strftime("%d/%m/%Y %H:%M") if r.NgayLap else ""
                 tong = f"{int(r.TongTien):,}" if r.TongTien is not None else "0"
-                tree.insert("", "end", values=(r.MaHD.strip(), ngay, r.MaNV.strip(), tong, r.TrangThai))
+                tree.insert("", "end", values=(
+                    r.MaHD.strip(),
+                    ngay,
+                    r.MaNV.strip(),
+                    r.TenKH if r.TenKH else "",
+                    tong,
+                    r.TrangThai if r.TrangThai else "",
+                    r.GhiChu if r.GhiChu else ""
+                ))
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tải danh sách hóa đơn: {e}")
 
@@ -73,7 +89,7 @@ def show_invoices_module(root, username=None, role=None):
                command=load_data).pack(side="left", padx=5)
 
     ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
-                command=lambda: create_invoice_window(root, username, refresh)).pack(side="left", padx=6)
+                command=lambda: add_invoice(root, username, refresh)).pack(side="left", padx=6)
     
     ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
                 command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6
@@ -90,59 +106,36 @@ def show_invoices_module(root, username=None, role=None):
 
     # realtime search debounce
     search_after = {"id": None}
-    def schedule_search(event=None):
+    def on_search_change(event=None):
         if search_after["id"]:
             root.after_cancel(search_after["id"])
         search_after["id"] = root.after(250, lambda: load_data(search_var.get().strip()))
-    entry_search.bind("<KeyRelease>", schedule_search)
+    entry_search.bind("<KeyRelease>", on_search_change)
 
     # double-click open detail
-    def on_double(e):
-        open_invoice_detail(tree, load_data, role)
-    tree.bind("<Double-1>", on_double)
+    def on_double_click(event):
+        sel = tree.selection()
+        if sel:
+            open_invoice_detail(tree, load_data, role)
+    tree.bind("<Double-1>", on_double_click)
 
     # refresh wrapper
     def refresh():
         load_data()
 
 # ---------- CREATE A NEW INVOICE ----------
-def create_invoice_window(root, username, parent_refresh=None):
-    """
-    Tạo hóa đơn mới: tự sinh MaHD, chọn nhân viên (mặc định username), ngày lập, ghi chú.
-    Sau khi tạo sẽ mở cửa sổ chi tiết (invoice_detail_window) để thêm món.
-    """
-    win = tk.Toplevel(root)
-    win.title("➕ Tạo hóa đơn mới")
-    win.geometry("420x260")
-    win.resizable(False, False)
 
-    frame = tk.Frame(win, padx=12, pady=12)
-    frame.pack(fill="both", expand=True)
+def add_invoice(root, username, refresh):
+    """Thêm hóa đơn mới (chuẩn hóa giao diện form theo Employee/Drink)"""
 
-    ttk.Label(frame, text="Mã hóa đơn:").grid(row=0, column=0, sticky="w", pady=6)
-    mahd = generate_next_mahd(db.cursor)
-    ent_ma = ttk.Entry(frame)
-    ent_ma.insert(0, mahd)
-    ent_ma.config(state="readonly")
-    ent_ma.grid(row=0, column=1, sticky="ew", pady=6)
+    # --- Tạo cửa sổ form chuẩn ---
+    win, form = create_form_window("➕ Tạo hóa đơn mới", size="500x430")
+    entries = {}
 
-    ttk.Label(frame, text="Người lập (Mã NV):").grid(row=1, column=0, sticky="w", pady=6)
-    ent_manv = ttk.Entry(frame)
-    ent_manv.insert(0, username or "")
-    ent_manv.grid(row=1, column=1, sticky="ew", pady=6)
+    # --- Danh sách label ---
+    labels = ["Mã hóa đơn", "Mã NV (người lập)", "Khách hàng", "Ngày lập", "Ghi chú", "Trạng thái"]
 
-    ttk.Label(frame, text="Ngày lập:").grid(row=2, column=0, sticky="w", pady=6)
-    ent_ngay = ttk.Entry(frame)
-    ent_ngay.insert(0, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    ent_ngay.grid(row=2, column=1, sticky="ew", pady=6)
-
-    ttk.Label(frame, text="Ghi chú:").grid(row=3, column=0, sticky="nw", pady=6)
-    txt_note = tk.Text(frame, height=4, width=30)
-    txt_note.grid(row=3, column=1, sticky="ew", pady=6)
-
-    # --- Combobox chọn khách hàng ---
-    ttk.Label(frame, text="Khách hàng (tuỳ chọn):").grid(row=4, column=0, sticky="w", pady=6)
-
+    # --- Tải danh sách khách hàng ---
     try:
         db.cursor.execute("SELECT MaKH, TenKH FROM KhachHang ORDER BY TenKH")
         kh_rows = db.cursor.fetchall()
@@ -150,40 +143,99 @@ def create_invoice_window(root, username, parent_refresh=None):
         kh_list = list(kh_map.keys())
     except Exception as e:
         kh_rows, kh_map, kh_list = [], {}, []
-        messagebox.showwarning("Lỗi", f"Không thể tải danh sách khách hàng: {e}")
+        messagebox.showwarning("Lỗi", f"Không thể tải danh sách khách hàng: {e}", parent=win)
 
-    kh_var = tk.StringVar()
-    kh_cb = ttk.Combobox(frame, values=kh_list, textvariable=kh_var, state="readonly")
-    kh_cb.grid(row=4, column=1, sticky="ew", pady=6)
+    # --- Sinh mã hóa đơn mới ---
+    mahd_auto = generate_next_mahd(db.cursor)
 
-    frame.grid_columnconfigure(1, weight=1)
+    for i, text in enumerate(labels):
+        ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa")\
+            .grid(row=i, column=0, sticky="w", padx=8, pady=8)
 
-    def create_and_open_detail():
-        manv_val = ent_manv.get().strip()
-        ghi_chu = txt_note.get("1.0", "end").strip()
-        if not manv_val:
-            messagebox.showwarning("Thiếu thông tin", "Vui lòng nhập Mã NV người lập.")
-            return
+        if text == "Khách hàng":
+            cb = ttk.Combobox(form, values=kh_list, state="readonly", font=("Arial", 11))
+            cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
+            entries[text] = cb
+
+        elif text == "Ngày lập":
+            ent = ttk.Entry(form, font=("Arial", 11))
+            ent.insert(0, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            ent.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
+            entries[text] = ent
+
+        elif text == "Trạng thái":
+            cb = ttk.Combobox(form, values=["Chưa thanh toán", "Đã thanh toán", "Hủy"], state="readonly", font=("Arial", 11))
+            cb.set("Chưa thanh toán")
+            cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
+            entries[text] = cb
+
+        elif text == "Ghi chú":
+            txt = tk.Text(form, height=3, font=("Arial", 11))
+            txt.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
+            entries[text] = txt
+
+        else:
+            ent = ttk.Entry(form, font=("Arial", 11))
+            if text == "Mã hóa đơn":
+                ent.insert(0, mahd_auto)
+                ent.config(state="readonly")
+            elif text == "Mã NV (người lập)":
+                ent.insert(0, username or "")
+            ent.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
+            entries[text] = ent
+
+    form.grid_columnconfigure(1, weight=1)
+
+    # --- Khung nút ---
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu & Thêm mặt hàng", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
+
+    # --- Hàm submit ---
+    def submit():
         try:
-            # Tạo hóa đơn (MaHD, NgayLap, MaNV, TongTien default 0)
-            # Lấy mã khách hàng (nếu có chọn)
-            makh = kh_map.get(kh_var.get()) if kh_var.get() else None
+            mahd = entries["Mã hóa đơn"].get().strip()
+            manv = entries["Mã NV (người lập)"].get().strip()
+            trangthai = entries["Trạng thái"].get().strip()
+            ngaylap_raw = entries["Ngày lập"].get().strip()
+            ghichu = entries["Ghi chú"].get("1.0", "end").strip()
+            kh_val = entries["Khách hàng"].get().strip()
+            makh = kh_map.get(kh_val) if kh_val else None
 
-            # Tạo hóa đơn (MaHD, NgayLap, MaNV, MaKH, TongTien, TrangThai, GhiChu)
+            # --- Kiểm tra dữ liệu ---
+            if not manv:
+                messagebox.showwarning("Thiếu thông tin", "⚠️ Mã nhân viên không được trống.", parent=win)
+                return
+
+            try:
+                ngaylap = datetime.strptime(ngaylap_raw, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                messagebox.showwarning("Lỗi ngày", "⚠️ Ngày lập không hợp lệ. Định dạng: YYYY-MM-DD HH:MM:SS", parent=win)
+                return
+
+            # --- Kiểm tra trùng mã hóa đơn ---
+            db.cursor.execute("SELECT COUNT(*) FROM HoaDon WHERE MaHD=?", (mahd,))
+            if db.cursor.fetchone()[0] > 0:
+                messagebox.showwarning("Trùng mã", f"Hóa đơn {mahd} đã tồn tại.", parent=win)
+                return
+
+            # --- Lưu vào DB ---
             db.cursor.execute("""
                 INSERT INTO HoaDon (MaHD, NgayLap, MaNV, MaKH, TongTien, TrangThai, GhiChu)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (mahd, datetime.now(), manv_val, makh, 0.0, 'Chưa thanh toán', ghi_chu))
+            """, (mahd, ngaylap, manv, makh, 0.0, trangthai, ghichu))
             db.conn.commit()
-            messagebox.showinfo("Thành công", f"Đã tạo hóa đơn {mahd}.")
+
+            messagebox.showinfo("✅ Thành công", f"Đã tạo hóa đơn {mahd}.", parent=win)
             win.destroy()
-            # Mở cửa sổ chi tiết để thêm món
-            invoice_detail_window(root, mahd, parent_refresh)
+
+            # --- Mở cửa sổ chi tiết hóa đơn ---
+            invoice_detail_window(root, mahd, refresh)
+
         except Exception as e:
             db.conn.rollback()
-            messagebox.showerror("Lỗi", f"Không thể tạo hóa đơn: {e}")
-
-    ttk.Button(frame, text="Tạo & Thêm mặt hàng", command=create_and_open_detail).grid(row=4, column=0, columnspan=2, pady=10)
+            messagebox.showerror("Lỗi", f"Không thể thêm hóa đơn: {e}", parent=win)
 
 # ---------- OPEN INVOICE DETAIL WINDOW ----------
 def open_invoice_detail(tree, parent_refresh, role=None):
@@ -193,6 +245,7 @@ def open_invoice_detail(tree, parent_refresh, role=None):
         return
     mahd = tree.item(sel[0])['values'][0]
     invoice_detail_window(tree.master, mahd, parent_refresh)
+
 
 def invoice_detail_window(root, mahd, parent_refresh=None):
     """
@@ -366,10 +419,10 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
 
 
     # Nút thao tác
-    ttk.Button(btnf, text="➕ Thêm", style="Invoice.TButton", command=add_item).pack(fill="x", pady=4)
-    ttk.Button(btnf, text="✏️ Sửa SL", style="Invoice.TButton", command=edit_qty).pack(fill="x", pady=4)
-    ttk.Button(btnf, text="🗑 Xóa", style="Invoice.TButton", command=delete_item).pack(fill="x", pady=4)
-    ttk.Button(btnf, text="Đóng", style="Invoice.TButton", command=win.destroy).pack(fill="x", pady=8)
+    ttk.Button(btnf, text="➕ Thêm", style="Add.TButton", command=add_item).pack(fill="x", pady=4)
+    ttk.Button(btnf, text="✏️ Sửa SL", style="Edit.TButton", command=edit_qty).pack(fill="x", pady=4)
+    ttk.Button(btnf, text="🗑 Xóa", style="Delete.TButton", command=delete_item).pack(fill="x", pady=4)
+    ttk.Button(btnf, text="Đóng", style="Close.TButton", command=win.destroy).pack(fill="x", pady=8)
 
 
 
@@ -405,7 +458,6 @@ def delete_invoice(tree, refresh):
             db.conn.commit()
 
         # Gọi helper để xóa hóa đơn
-        from app.utils import safe_delete
         safe_delete(
             table_name="HoaDon",
             key_column="MaHD",
@@ -427,13 +479,9 @@ def update_customer_points(mahd):
     if row and row.MaKH:
         makh, tongtien = row.MaKH, row.TongTien or 0
         diem_cong = int(tongtien // 10000)  # mỗi 10,000đ = 1 điểm
-        db.cursor.execute("UPDATE KhachHang SET DiemTichLuy = ISNULL(DiemTichLuy,0) + ? WHERE MaKH=?", (diem_cong, makh))
+        db.cursor.execute("SELECT MaKH, TongTien, TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
         db.conn.commit()
     if not row or row.TrangThai != "Đã thanh toán":
         return  # chỉ tích điểm khi đã thanh toán
 
-# ---------- GO BACK TO MAIN MENU ----------
-def go_back(root, username, role):
-    """Quay lại giao diện chính (main menu)."""
-    from app.ui.mainmenu_frame import show_main_menu
-    show_main_menu(root, username, role)
+

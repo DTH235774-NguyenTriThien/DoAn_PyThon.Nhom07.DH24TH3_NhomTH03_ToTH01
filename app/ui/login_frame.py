@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import pyodbc, configparser, os
-from app.utils import clear_window
+from app.utils.utils import clear_window
 
 def show_login(root):
     """Hiển thị giao diện đăng nhập (icon mật khẩu nằm ngoài textbox, không che)"""

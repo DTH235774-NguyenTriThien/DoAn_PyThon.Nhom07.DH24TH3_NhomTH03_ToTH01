@@ -1,7 +1,7 @@
 # app/ui/mainmenu_frame.py
 import tkinter as tk
 from tkinter import ttk
-from app.utils import clear_window
+from app.utils.utils import clear_window
 
 def show_main_menu(root, username, role):
     clear_window(root)
@@ -71,7 +71,7 @@ def show_main_menu(root, username, role):
         ("🥤 Quản lý đồ uống", lambda: from_app_open_drinks(root)),
         ("🧾 Quản lý hóa đơn", lambda: from_app_open_invoices(root)),
         ("💳 Khách hàng", lambda: from_app_open_customers(root)),
-        ("📊 Thống kê", lambda: print("Thống kê module")),
+        ("📊 Thống kê", lambda: from_app_open_reports(root)),
     ]
 
     # Bố trí nút dạng 2 hàng, 3 cột
@@ -119,3 +119,7 @@ def from_app_open_invoices(root):
 def from_app_open_customers(root):
     from app.modules.customers import show_customers_module
     show_customers_module(root)
+
+def from_app_open_reports(root):
+    from app.modules.reports import show_statistics_module
+    show_statistics_module(root)

@@ -4,21 +4,19 @@ from datetime import datetime
 from app import db
 from tkcalendar import DateEntry
 from datetime import datetime
-from app.utils import clear_window
-from app.utils import normalize_date_input
+from app.utils.utils import clear_window, normalize_date_input, create_form_window, safe_delete, go_back, center_window
+from app.theme import setup_styles
 
 def show_employee_module(root, username=None, role=None):
     """Giao diện quản lý nhân viên (phiên bản frame-based)"""
     clear_window(root)
-    root.title("Quản lý nhân viên")
+    setup_styles()
 
-    window_width = 1200
-    window_height = 600
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    x = int((screen_width / 2) - (window_width / 2))
-    y = int((screen_height / 2) - (window_height / 2))
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    root.title("Quản lý nhân viên")
+    root.configure(bg="#f5e6ca")
+
+# ====== CẤU HÌNH FORM CHÍNH ======
+    center_window(root, 1200, 600)
     root.minsize(1000, 550)
 
     # ====== THANH TIÊU ĐỀ ======
@@ -126,7 +124,7 @@ def show_employee_module(root, username=None, role=None):
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
            command=lambda: go_back(root, username, role)).pack(side="right", padx=5)
 
-
+    load_data()
 
     # ====== GẮN SỰ KIỆN TÌM KIẾM REALTIME ======
     def on_search_change(*args):
@@ -135,29 +133,31 @@ def show_employee_module(root, username=None, role=None):
 
     search_var.trace_add("write", on_search_change)
 
-    load_data()
+    def on_double_click(event):
+        sel = tree.selection()
+        if sel:
+            edit_employee(tree, load_data, role)
+    tree.bind("<Double-1>", on_double_click)   
+
+    def refresh():
+        load_data()
 
 
 def add_employee(refresh):
-    """Thêm nhân viên mới (có chọn ngày sinh bằng calendar + combobox chức vụ)"""
-    win = tk.Toplevel()
-    win.title("➕ Thêm nhân viên mới")
-    win.geometry("430x500")
-    win.resizable(False, False)
-    win.configure(bg="#f8f9fa")
+    """Thêm nhân viên mới (chuẩn hóa giao diện theo template form)"""
 
-    form = tk.Frame(win, bg="#f8f9fa")
-    form.pack(padx=20, pady=15, fill="both", expand=True)
+    win, form = create_form_window("➕ Thêm nhân viên mới")
+    entries = {}
 
     labels = ["Mã NV", "Họ tên", "Giới tính", "Ngày sinh",
               "Chức vụ", "Lương cơ bản", "Trạng thái"]
-    entries = {}
     positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
     statuses = ["Đang làm", "Tạm nghỉ", "Đào tạo", "Đã nghỉ"]
 
     for i, text in enumerate(labels):
-        lbl = ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa")
-        lbl.grid(row=i, column=0, sticky="w", padx=8, pady=6)
+        ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa").grid(
+            row=i, column=0, sticky="w", padx=8, pady=6
+        )
 
         if text == "Chức vụ":
             cb = ttk.Combobox(form, values=positions, state="readonly", font=("Arial", 11))
@@ -173,7 +173,7 @@ def add_employee(refresh):
 
         elif text == "Trạng thái":
             cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
-            cb.set("Đang làm")  # mặc định
+            cb.set("Đang làm")
             cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = cb
 
@@ -186,7 +186,6 @@ def add_employee(refresh):
                         font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
             tk.Radiobutton(frame_gender, text="Nữ", variable=gender_var, value="Nữ",
                         font=("Arial", 11), bg="#f8f9fa").pack(side="left", padx=5)
-
             entries[text] = gender_var
 
         else:
@@ -196,49 +195,38 @@ def add_employee(refresh):
 
     form.grid_columnconfigure(1, weight=1)
 
+    # --- Buttons ---
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
-    ttk.Button(btn_frame, text="💾 Lưu nhân viên", command=lambda: submit()).pack(ipadx=10, ipady=5)
+    ttk.Button(btn_frame, text="💾 Lưu nhân viên", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=5)
 
+    # --- Submit Function ---
     def submit():
         try:
             manv = entries["Mã NV"].get().strip().upper()
             hoten = entries["Họ tên"].get().strip()
             gt = entries["Giới tính"].get()
 
-            # --- Xử lý ngày sinh an toàn ---
-            raw_ngs = None
-            widget = entries["Ngày sinh"]
-            try:
-                raw_ngs = widget.get_date()
-            except Exception:
-                try:
-                    raw_ngs = widget.get()
-                except Exception:
-                    raw_ngs = None
-
-            try:
-                ngs = normalize_date_input(raw_ngs)
-            except ValueError as e:
-                messagebox.showerror("Lỗi định dạng ngày", f"Ngày sinh không hợp lệ: {e}")
-                return
+            raw_ngs = entries["Ngày sinh"].get_date()
+            ngs = normalize_date_input(raw_ngs)
 
             cv = entries["Chức vụ"].get().strip()
             luong = float(entries["Lương cơ bản"].get().strip() or 0)
             tt = entries["Trạng thái"].get().strip() or "Đang làm"
 
-            # --- ✅ Tự động sinh mã NV nếu trống ---
+            # --- Sinh mã tự động nếu trống ---
             if not manv:
-                from app.utils import generate_next_manv
+                from app.utils.utils import generate_next_manv
                 manv = generate_next_manv(db.cursor)
 
-            # --- ✅ Kiểm tra trùng mã NV ---
+            # --- Kiểm tra trùng ---
             db.cursor.execute("SELECT COUNT(*) FROM NhanVien WHERE MaNV=?", (manv,))
             if db.cursor.fetchone()[0] > 0:
-                messagebox.showwarning("⚠️ Trùng mã NV", f"Mã nhân viên {manv} đã tồn tại!")
+                messagebox.showwarning("⚠️ Trùng mã NV", f"Mã {manv} đã tồn tại!")
                 return
 
-            # --- Lưu vào DB ---
+            # --- Lưu DB ---
             db.cursor.execute("""
                 INSERT INTO NhanVien (MaNV, HoTen, GioiTinh, NgaySinh, ChucVu, LuongCoBan, TrangThai)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -251,7 +239,6 @@ def add_employee(refresh):
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể thêm nhân viên: {e}")
-
 
 
 def edit_employee(tree, refresh, role):
@@ -335,7 +322,7 @@ def edit_employee(tree, refresh, role):
 
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
-    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
+    ttk.Button(btn_frame, style="Add.TButton", text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
     
     def save():
         try:
@@ -390,7 +377,7 @@ def delete_employee(tree, refresh):
     values = tree.item(selected[0])["values"]
     manv = values[0]
 
-    from app.utils import safe_delete
+    # Gọi helper để xóa hóa đơn
     safe_delete(
         table_name="NhanVien",
         key_column="MaNV",
@@ -400,8 +387,3 @@ def delete_employee(tree, refresh):
         refresh_func=refresh,
         item_label="nhân viên"
     )
-
-def go_back(root, username, role):
-    """Quay lại main menu"""
-    from app.ui.mainmenu_frame import show_main_menu
-    show_main_menu(root, username, role)

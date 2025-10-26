@@ -3,21 +3,20 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from decimal import Decimal, InvalidOperation
 from app import db
-from app.utils import clear_window, generate_next_masp
+from app.utils.utils import clear_window, generate_next_masp, create_form_window, safe_delete, go_back, center_window
+from app.theme import setup_styles
+
 
 def show_drinks_module(root, username=None, role=None):
 
     clear_window(root)
-    root.title("Quản lý đồ uống - SANPHAM")
+    setup_styles()
+
+    root.title("Quản lý đồ uống")
     root.configure(bg="#f5e6ca")  # hoặc theme của bạn
 
-    window_width = 1200
-    window_height = 600
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    x = int((screen_width / 2) - (window_width / 2))
-    y = int((screen_height / 2) - (window_height / 2))
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    # ====== CẤU HÌNH FORM CHÍNH ======
+    center_window(root, 1200, 700, offset_y=-60)
     root.minsize(1000, 550)
 
     # Header
@@ -35,14 +34,6 @@ def show_drinks_module(root, username=None, role=None):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
-    # Real-time search debounce
-    search_after_id = {"id": None}
-    def schedule_search(event=None):
-        if search_after_id["id"]:
-            root.after_cancel(search_after_id["id"])
-        search_after_id["id"] = root.after(250, lambda: load_data(search_var.get().strip()))
-
-    entry_search.bind("<KeyRelease>", schedule_search)
 
     #ttk.Button(top, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=6)
     #ttk.Button(top, text="➕ Thêm", command=lambda: add_drink(load_data)).pack(side="left", padx=6)
@@ -95,7 +86,7 @@ def show_drinks_module(root, username=None, role=None):
 
 
     # Button on top frame 
-    
+
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
                command=load_data).pack(side="left", padx=5)
     ttk.Button(top, text="➕ Thêm", style="Add.TButton",
@@ -107,8 +98,16 @@ def show_drinks_module(root, username=None, role=None):
     ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
            command=lambda: go_back(root, username, role)).pack(side="right", padx=5)
 
-
     load_data()
+
+        # Real-time search debounce
+    search_after_id = {"id": None}
+    def on_search_change(event=None):
+        if search_after_id["id"]:
+            root.after_cancel(search_after_id["id"])
+        search_after_id["id"] = root.after(250, lambda: load_data(search_var.get().strip()))
+
+    entry_search.bind("<KeyRelease>", on_search_change)
 
     # Double-click to edit
     def on_double_click(event):
@@ -117,35 +116,38 @@ def show_drinks_module(root, username=None, role=None):
             edit_drink(tree, load_data, role)
     tree.bind("<Double-1>", on_double_click)
 
+    def refresh():
+        load_data()
+
 
 def add_drink(refresh):
-    """Form thêm sản phẩm / đồ uống"""
-    win = tk.Toplevel()
-    win.title("➕ Thêm sản phẩm")
-    win.geometry("480x380")
-    win.resizable(False, False)
-    win.configure(bg="#f8f9fa")
-
-    form = tk.Frame(win, bg="#f8f9fa")
-    form.pack(padx=12, pady=12, fill="both", expand=True)
-
-    labels = ["Mã SP", "Tên sản phẩm", "Loại", "Đơn giá", "Trạng thái"]
+    """Thêm sản phẩm / đồ uống (chuẩn hóa giao diện theo form Employee)"""
+    # --- Tạo cửa sổ form chuẩn ---
+    win, form = create_form_window("➕ Thêm sản phẩm", size="460x400")
     entries = {}
+
+    # --- Danh sách trường và giá trị cho combobox ---
+    labels = ["Mã SP", "Tên sản phẩm", "Loại", "Đơn giá", "Trạng thái"]
     types = ["Cà phê", "Trà sữa", "Sinh tố", "Nước ngọt", "Khác"]
     statuses = ["Có hàng", "Hết hàng", "Ngưng bán"]
 
+    # --- Sinh form ---
     for i, text in enumerate(labels):
-        ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa").grid(row=i, column=0, sticky="w", padx=8, pady=8)
+        ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa")\
+            .grid(row=i, column=0, sticky="w", padx=8, pady=8)
+
         if text == "Loại":
             cb = ttk.Combobox(form, values=types, state="readonly", font=("Arial", 11))
-            cb.set(types[0])
+            cb.current(0)
             cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = cb
+
         elif text == "Trạng thái":
             cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
             cb.set(statuses[0])
             cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = cb
+
         else:
             ent = ttk.Entry(form, font=("Arial", 11))
             ent.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
@@ -153,9 +155,13 @@ def add_drink(refresh):
 
     form.grid_columnconfigure(1, weight=1)
 
-    btnf = tk.Frame(win, bg="#f8f9fa")
-    btnf.pack(pady=8)
+    # --- Nút lưu ---
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
 
+    # --- Hàm submit ---
     def submit():
         try:
             ma = entries["Mã SP"].get().strip().upper()
@@ -164,43 +170,43 @@ def add_drink(refresh):
             gia_raw = entries["Đơn giá"].get().strip().replace(",", "")
             trangthai = entries["Trạng thái"].get().strip()
 
+            # Kiểm tra dữ liệu
             if not ten:
-                messagebox.showwarning("Thiếu thông tin", "Tên sản phẩm không được để trống.")
+                messagebox.showwarning("Thiếu thông tin", "⚠️ Tên sản phẩm không được để trống.", parent=win)
                 return
 
-            # Giá kiểm tra số
             try:
-                gia = Decimal(gia_raw) if gia_raw!="" else Decimal(0)
+                gia = Decimal(gia_raw) if gia_raw != "" else Decimal(0)
                 if gia < 0:
                     raise InvalidOperation("Giá phải >= 0")
             except Exception:
-                messagebox.showwarning("Lỗi", "Đơn giá không hợp lệ. Vui lòng nhập số.")
+                messagebox.showwarning("Lỗi", "Đơn giá không hợp lệ. Vui lòng nhập số dương.", parent=win)
                 return
 
-            # Sinh mã nếu bỏ trống
+            # Sinh mã tự động nếu trống
             if not ma:
                 ma = generate_next_masp(db.cursor)
 
-            # Kiểm tra trùng
+            # Kiểm tra trùng mã
             db.cursor.execute("SELECT COUNT(*) FROM SANPHAM WHERE MaSP=?", (ma,))
             if db.cursor.fetchone()[0] > 0:
-                messagebox.showwarning("Trùng mã", f"Mã sản phẩm {ma} đã tồn tại.")
+                messagebox.showwarning("Trùng mã", f"⚠️ Mã sản phẩm {ma} đã tồn tại.", parent=win)
                 return
 
-            # Insert
+            # Thêm sản phẩm
             db.cursor.execute("""
                 INSERT INTO SANPHAM (MaSP, TenSP, LoaiSP, DonGia, TrangThai)
                 VALUES (?, ?, ?, ?, ?)
             """, (ma, ten, loai, float(gia), trangthai))
             db.conn.commit()
-            messagebox.showinfo("Thành công", f"Đã thêm {ma} - {ten}")
+
+            messagebox.showinfo("✅ Thành công", f"Đã thêm sản phẩm {ma} - {ten}.", parent=win)
             refresh()
             win.destroy()
 
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể thêm sản phẩm: {e}")
-
-    ttk.Button(btnf, text="💾 Lưu", command=submit).pack(ipadx=10, ipady=6)
+            db.conn.rollback()
+            messagebox.showerror("Lỗi", f"Không thể thêm sản phẩm: {e}", parent=win)
 
 
 def edit_drink(tree, refresh, role=None):
@@ -301,7 +307,7 @@ def edit_drink(tree, refresh, role=None):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật sản phẩm: {e}")
 
-    ttk.Button(btnf, text="💾 Lưu", command=save).pack(ipadx=10, ipady=6)
+    ttk.Button(btnf, text="💾 Lưu", style="Add.TButton", command=save).pack(ipadx=10, ipady=6)
 
 
 def delete_drink(tree, refresh):
@@ -313,7 +319,7 @@ def delete_drink(tree, refresh):
     values = tree.item(selected[0])["values"]
     masp = values[0]
 
-    from app.utils import safe_delete
+    # Gọi helper để xóa hóa đơn
     safe_delete(
         table_name="SanPham",
         key_column="MaSP",
@@ -325,6 +331,3 @@ def delete_drink(tree, refresh):
     )
 
 
-def go_back(root, username, role):
-    from app.ui.mainmenu_frame import show_main_menu
-    show_main_menu(root, username, role)

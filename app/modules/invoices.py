@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox, simpledialog
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
+from app.db import execute_query
 from app.utils.utils import clear_window, generate_next_mahd, recalc_invoice_total, safe_delete, create_form_window, go_back, center_window
 from app.theme import setup_styles
 
@@ -221,14 +222,16 @@ def add_invoice(root, username, refresh):
                 return
 
             # --- Lưu vào DB ---
-            db.cursor.execute("""
+            query = """
                 INSERT INTO HoaDon (MaHD, NgayLap, MaNV, MaKH, TongTien, TrangThai, GhiChu)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (mahd, ngaylap, manv, makh, 0.0, trangthai, ghichu))
-            db.conn.commit()
+            """
+            params = (mahd, ngaylap, manv, makh, 0.0, trangthai, ghichu)
 
-            messagebox.showinfo("✅ Thành công", f"Đã tạo hóa đơn {mahd}.", parent=win)
-            win.destroy()
+            if execute_query(query, params):
+                messagebox.showinfo("✅ Thành công", f"Đã tạo hóa đơn {mahd}.", parent=win)
+                win.destroy()
+                refresh()
 
             # --- Mở cửa sổ chi tiết hóa đơn ---
             invoice_detail_window(root, mahd, refresh)

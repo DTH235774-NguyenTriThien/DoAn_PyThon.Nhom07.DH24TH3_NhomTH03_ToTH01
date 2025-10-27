@@ -3,11 +3,12 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
 from app import db
-from app.utils import normalize_date_input, create_form_window, safe_delete
+from app.db import execute_query
+from app.utils.utils import normalize_date_input, create_form_window, safe_delete, go_back, generate_next_manv
 from app.theme import setup_styles
 
 
-def build_tab(parent):
+def build_tab(parent, root=None, username=None, role=None):
     """Tab 1 - Thông tin nhân viên (chuẩn hoá từ module employee.py gốc)"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
@@ -19,8 +20,10 @@ def build_tab(parent):
     search_var = tk.StringVar()
     tk.Label(top_frame, text="🔎 Tìm nhân viên:", font=("Arial", 11),
              bg="#f9fafb").pack(side="left", padx=5)
-    entry_search = ttk.Entry(top_frame, textvariable=search_var, width=40)
+    entry_search = ttk.Entry(top_frame, textvariable=search_var, width=35)
     entry_search.pack(side="left", padx=5)
+    entry_search.bind("<KeyRelease>", lambda e: load_data(search_var.get().strip()))
+
 
     # ====== BẢNG HIỂN THỊ ======
     headers_vn = {
@@ -81,14 +84,14 @@ def build_tab(parent):
                 ])
 
                 # Highlight keyword
-                if keyword_lower and (
-                    keyword_lower in manv.lower()
-                    or keyword_lower in hoten.lower()
-                    or keyword_lower in row.GioiTinh.lower()
-                    or keyword_lower in chucvu.lower()
-                    or keyword_lower in trangthai.lower()
-                ):
-                    tree.item(item_id, tags=("highlight",))
+                #if keyword_lower and (
+                #    keyword_lower in manv.lower()
+                #    or keyword_lower in hoten.lower()
+                #    or keyword_lower in row.GioiTinh.lower()
+                #    or keyword_lower in chucvu.lower()
+                #    or keyword_lower in trangthai.lower()
+                #):
+                #    tree.item(item_id, tags=("highlight",))
 
             tree.tag_configure("highlight", background="#fff3cd",
                                font=("Arial", 11, "bold"))
@@ -105,12 +108,13 @@ def build_tab(parent):
                command=lambda: edit_employee(tree, load_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
                command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
+    ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
+                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
 
     # ====== GẮN SỰ KIỆN ======
-    def on_search_change(*args):
-        keyword = search_var.get().strip()
-        load_data(keyword)
-    search_var.trace_add("write", on_search_change)
+    def on_search_change(event=None):
+        kw = search_var.get().strip()
+        load_data(kw)
 
     def on_double_click(event):
         sel = tree.selection()
@@ -187,7 +191,6 @@ def add_employee(refresh):
             tt = entries["Trạng thái"].get().strip() or "Đang làm"
 
             if not manv:
-                from app.utils import generate_next_manv
                 manv = generate_next_manv(db.cursor)
 
             db.cursor.execute("SELECT COUNT(*) FROM NhanVien WHERE MaNV=?", (manv,))
@@ -195,15 +198,16 @@ def add_employee(refresh):
                 messagebox.showwarning("⚠️ Trùng mã NV", f"Mã {manv} đã tồn tại!")
                 return
 
-            db.cursor.execute("""
-                INSERT INTO NhanVien (MaNV, HoTen, GioiTinh, NgaySinh, ChucVu, LuongCoBan, TrangThai)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (manv, hoten, gt, ngs, cv, luong, tt))
-            db.conn.commit()
+            query = """
+            INSERT INTO NhanVien (MaNV, HoTen, GioiTinh, NgaySinh, ChucVu, LuongCoBan, TrangThai)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            params = (manv, hoten, gt, ngs, cv, luong, tt)
 
-            messagebox.showinfo("✅ Thành công", f"Đã thêm nhân viên {manv}!")
-            refresh()
-            win.destroy()
+            if execute_query(query, params):
+                messagebox.showinfo("✅ Thành công", f"Đã thêm nhân viên {manv}!")
+                refresh()
+                win.destroy()
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể thêm nhân viên: {e}")
@@ -293,16 +297,17 @@ def edit_employee(tree, refresh):
                 messagebox.showwarning("Thiếu thông tin", "⚠️ Họ tên không được để trống.")
                 return
 
-            db.cursor.execute("""
+            query = """
                 UPDATE NhanVien
                 SET HoTen=?, GioiTinh=?, NgaySinh=?, ChucVu=?, LuongCoBan=?, TrangThai=?
                 WHERE MaNV=?
-            """, (hoten, gt, ngs, cv, luong, tt, manv))
-            db.conn.commit()
+            """
+            params = (hoten, gt, ngs, cv, luong, tt, manv)
 
-            messagebox.showinfo("✅ Thành công", f"Đã cập nhật nhân viên {manv}.")
-            refresh()
-            win.destroy()
+            if execute_query(query, params):
+                messagebox.showinfo("✅ Thành công", f"Đã cập nhật nhân viên {manv}.")
+                refresh()
+                win.destroy()
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật nhân viên: {e}")

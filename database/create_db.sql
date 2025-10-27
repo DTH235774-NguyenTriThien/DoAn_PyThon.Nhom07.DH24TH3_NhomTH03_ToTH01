@@ -142,7 +142,7 @@ CREATE TABLE CongThuc (
     SoLuong DECIMAL(12,3) NOT NULL, -- quantity of ingredient per product
     CONSTRAINT FK_CongThuc_SanPham FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP),
     CONSTRAINT FK_CongThuc_NguyenLieu FOREIGN KEY (MaNL) REFERENCES NguyenLieu(MaNL)
-);
+);  
 GO
 
 CREATE TABLE InventoryMovements (
@@ -156,3 +156,14 @@ CREATE TABLE InventoryMovements (
     CONSTRAINT FK_InvMov_HD FOREIGN KEY (RefMaHD) REFERENCES HoaDon(MaHD)
 );
 GO
+
+use QL_CaPhe
+go
+
+DECLARE @kw NVARCHAR(10) = '%1%';
+SELECT *
+FROM CaLam
+WHERE CAST(MaCa AS NVARCHAR(10)) LIKE @kw
+   OR TenCa LIKE @kw
+   OR CONVERT(VARCHAR(5), GioBatDau, 108) LIKE @kw
+   OR CONVERT(VARCHAR(5), GioKetThuc, 108) LIKE @kw;

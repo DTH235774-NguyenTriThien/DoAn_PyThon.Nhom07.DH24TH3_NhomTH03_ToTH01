@@ -1,5 +1,6 @@
 # ===== File & thư mục tạm của Python =====
 __pycache__/
+__init__/
 *.pyc
 *.pyo
 *.pyd

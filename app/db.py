@@ -1,25 +1,30 @@
 import pyodbc
 import configparser
-from tabulate import tabulate  # Hiển thị bảng dễ đọc
+from tkinter import messagebox
 
-# ============================================================
-# Đọc file cấu hình config.ini
-# ============================================================
+# ==============================
+# 🔧 Đọc cấu hình từ config.ini
+# ==============================
 config = configparser.ConfigParser()
-config.read('config.ini', encoding='utf-8')
+config.read("config.ini", encoding="utf-8")
 
-server = config['database']['server']
-database = config['database']['database']
-driver = config['database']['driver']
-trusted = config['database'].get('trusted_connection', 'no')
-timeout = config['database'].get('timeout', '30')
+server = config["database"]["server"]
+database = config["database"]["database"]
+driver = config["database"]["driver"]
+trusted = config["database"].get("trusted_connection", "no")
+timeout = config["database"].get("timeout", "30")
 
-# ============================================================
-# Kết nối đến SQL Server
-# ============================================================
+username = config["database"].get("username", "")
+password = config["database"].get("password", "")
+
+# ==============================
+# 🔗 Kết nối SQL Server
+# ==============================
+conn = None
+cursor = None
+
 try:
-    if trusted.lower() == 'yes':
-        # Windows Authentication
+    if trusted.lower() == "yes":
         conn_str = (
             f"DRIVER={driver};"
             f"SERVER={server};"
@@ -28,9 +33,6 @@ try:
             f"timeout={timeout}"
         )
     else:
-        # SQL Server Authentication
-        username = config['database']['username']
-        password = config['database']['password']
         conn_str = (
             f"DRIVER={driver};"
             f"SERVER={server};"
@@ -42,91 +44,63 @@ try:
 
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    print("✅ Kết nối SQL Server thành công!")
 
 except Exception as e:
-    print("❌ Lỗi kết nối SQL Server:", e)
-    conn = None
-    cursor = None
+    messagebox.showerror("Lỗi kết nối SQL Server", f"Không thể kết nối cơ sở dữ liệu:\n{e}")
+    conn, cursor = None, None
 
 
-# ============================================================
-# Hàm: Lấy toàn bộ dữ liệu từ một bảng
-# ============================================================
+# ==============================
+# 📘 Các hàm tiện ích thao tác DB
+# ==============================
 def fetch_all(table_name):
-    """
-    Truy vấn và hiển thị toàn bộ dữ liệu từ 1 bảng trong database.
-    Dữ liệu được hiển thị có định dạng dễ đọc, hỗ trợ tiếng Việt.
-    """
+    """Truy vấn toàn bộ dữ liệu từ 1 bảng."""
     if cursor is None:
-        print("⚠️ Không thể truy vấn — chưa kết nối SQL Server.")
-        return
+        messagebox.showwarning("Cảnh báo", "Chưa kết nối SQL Server.")
+        return []
 
     try:
         cursor.execute(f"SELECT * FROM {table_name}")
         rows = cursor.fetchall()
-
-        if not rows:
-            print(f"⚠️ Không có dữ liệu trong bảng '{table_name}'.")
-            return
-
-        headers = [desc[0] for desc in cursor.description]
-
-        formatted_data = []
-        for row in rows:
-            cleaned_row = []
-            for item in row:
-                if item is None:
-                    cleaned_row.append("")
-                elif hasattr(item, 'strftime'):  # định dạng ngày tháng
-                    cleaned_row.append(item.strftime('%d/%m/%Y'))
-                elif hasattr(item, 'quantize'):  # định dạng Decimal
-                    cleaned_row.append(f"{int(item):,}")
-                else:
-                    cleaned_row.append(str(item).strip())
-            formatted_data.append(cleaned_row)
-
-        print(f"\n📋 Dữ liệu trong bảng: {table_name}")
-        print(tabulate(formatted_data, headers=headers, tablefmt="fancy_grid", stralign="center"))
-
+        return rows
     except Exception as e:
-        print(f"❌ Lỗi khi truy vấn bảng '{table_name}':", e)
+        messagebox.showerror("Lỗi truy vấn", f"Không thể lấy dữ liệu từ {table_name}:\n{e}")
+        return []
 
 
-# ============================================================
-# Hàm: Lấy 1 dòng dữ liệu
-# ============================================================
 def fetch_one(table_name, condition=None):
-    """
-    Truy vấn 1 dòng dữ liệu từ bảng (tùy điều kiện WHERE).
-    Ví dụ: fetch_one("NhanVien", "MaNV = 'NV001'")
-    """
+    """Truy vấn 1 dòng dữ liệu từ bảng (có điều kiện WHERE tùy chọn)."""
     if cursor is None:
-        print("⚠️ Không thể truy vấn — chưa kết nối SQL Server.")
+        messagebox.showwarning("Cảnh báo", "Chưa kết nối SQL Server.")
         return None
 
     try:
         query = f"SELECT * FROM {table_name}"
         if condition:
             query += f" WHERE {condition}"
-
         cursor.execute(query)
-        row = cursor.fetchone()
-
-        if not row:
-            print(f"⚠️ Không có dữ liệu phù hợp trong bảng '{table_name}'.")
-            return None
-
-        return row
-
+        return cursor.fetchone()
     except Exception as e:
-        print(f"❌ Lỗi khi truy vấn dòng dữ liệu trong bảng '{table_name}':", e)
+        messagebox.showerror("Lỗi truy vấn", f"Không thể lấy dữ liệu từ {table_name}:\n{e}")
         return None
 
 
-# ============================================================
-# Hàm: Đóng kết nối
-# ============================================================
+def execute_query(query, params=()):
+    """Thực thi truy vấn bất kỳ (INSERT, UPDATE, DELETE)."""
+    if cursor is None:
+        messagebox.showwarning("Cảnh báo", "Chưa kết nối SQL Server.")
+        return False
+
+    try:
+        cursor.execute(query, params)
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        messagebox.showerror("Lỗi SQL", f"Không thể thực thi truy vấn:\n{e}")
+        return False
+
+
 def close_connection():
     """Đóng kết nối đến SQL Server."""
     try:
@@ -134,6 +108,5 @@ def close_connection():
             cursor.close()
         if conn:
             conn.close()
-        print("🔒 Đã đóng kết nối SQL Server.")
-    except Exception as e:
-        print("⚠️ Lỗi khi đóng kết nối:", e)
+    except Exception:
+        pass

@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from decimal import Decimal, InvalidOperation
 from app import db
+from app.db import execute_query
 from app.utils.utils import clear_window, generate_next_masp, create_form_window, safe_delete, go_back, center_window
 from app.theme import setup_styles
 
@@ -194,15 +195,16 @@ def add_drink(refresh):
                 return
 
             # Thêm sản phẩm
-            db.cursor.execute("""
+            query = """
                 INSERT INTO SANPHAM (MaSP, TenSP, LoaiSP, DonGia, TrangThai)
                 VALUES (?, ?, ?, ?, ?)
-            """, (ma, ten, loai, float(gia), trangthai))
-            db.conn.commit()
+            """
+            params = (ma, ten, loai, float(gia), trangthai)
 
-            messagebox.showinfo("✅ Thành công", f"Đã thêm sản phẩm {ma} - {ten}.", parent=win)
-            refresh()
-            win.destroy()
+            if execute_query(query, params):
+                messagebox.showinfo("✅ Thành công", f"Đã thêm sản phẩm {ma} - {ten}.", parent=win)
+                refresh()
+                win.destroy()
 
         except Exception as e:
             db.conn.rollback()
@@ -294,15 +296,18 @@ def edit_drink(tree, refresh, role=None):
                 messagebox.showwarning("Lỗi", "Đơn giá không hợp lệ.")
                 return
 
-            db.cursor.execute("""
+            query = """
                 UPDATE SANPHAM
                 SET TenSP=?, LoaiSP=?, DonGia=?, TrangThai=?
                 WHERE MaSP=?
-            """, (ten, loai, float(gia), trangthai, ma))
-            db.conn.commit()
-            messagebox.showinfo("Thành công", f"Đã cập nhật {ma}")
-            refresh()
-            win.destroy()
+            """
+            params = (ten, loai, float(gia), trangthai, ma)
+
+            if execute_query(query, params):
+                messagebox.showinfo("Thành công", f"Đã cập nhật {ma}")
+                win.destroy()
+                refresh()
+                
 
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật sản phẩm: {e}")

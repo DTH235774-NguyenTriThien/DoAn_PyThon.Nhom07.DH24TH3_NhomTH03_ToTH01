@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app import db
+from app.db import execute_query
 from app.utils.utils import clear_window, generate_next_makh, safe_delete, create_form_window, go_back, center_window
 from app.theme import setup_styles
 
@@ -205,15 +206,15 @@ def add_customer(refresh):
                 return
 
             # --- Ghi vào DB ---
-            db.cursor.execute("""
+            query = """
                 INSERT INTO KhachHang (MaKH, TenKH, SDT, DiemTichLuy, TrangThai)
                 VALUES (?, ?, ?, ?, ?)
-            """, (makh, ten, sdt, diem, trangthai))
-            db.conn.commit()
-
-            messagebox.showinfo("✅ Thành công", f"Đã thêm khách hàng {makh} - {ten}.", parent=win)
-            refresh()
-            win.destroy()
+            """
+            params = (makh, ten, sdt, diem, trangthai)
+            if execute_query(query,params):
+                messagebox.showinfo("✅ Thành công", f"Đã thêm khách hàng {makh} - {ten}.", parent=win)
+                refresh()
+                win.destroy()
 
         except Exception as e:
             db.conn.rollback()
@@ -265,16 +266,18 @@ def edit_customer(tree, refresh):
             sdt = ent_sdt.get().strip()
             diem = int(spin_diem.get() or 0)
 
-            db.cursor.execute("""
+            query = """
                 UPDATE KhachHang
                 SET TenKH=?, SDT=?, DiemTichLuy=?
                 WHERE MaKH=?
-            """, (ten, sdt, diem, makh))
-            db.conn.commit()
+            """
+            params = (ten, sdt, diem, makh)
 
-            messagebox.showinfo("✅ Thành công", f"Đã cập nhật khách hàng {makh}.")
-            refresh()
-            win.destroy()
+            if execute_query(query, params):
+                messagebox.showinfo("✅ Thành công", f"Đã cập nhật khách hàng {makh}.")
+                win.destroy()
+                refresh()
+                
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật khách hàng: {e}")
 

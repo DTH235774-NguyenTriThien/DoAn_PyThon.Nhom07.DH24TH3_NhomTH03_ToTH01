@@ -23,3 +23,6 @@ config.ini
 
 # ===== File ERD cho phần nghiệp vụ =====
 ERD/
+
+# ===== File Exports lưu trữ file excel từ bảng lương =====
+exports/

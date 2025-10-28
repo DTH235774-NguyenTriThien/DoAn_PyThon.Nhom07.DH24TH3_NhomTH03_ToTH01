@@ -103,7 +103,7 @@ def show_customers_module(root, username=None, role=None):
                command=lambda: add_customer(load_data)).pack(side="left", padx=5)
     
     ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_customer(tree, load_data)).pack(side="left", padx=5)
+               command=lambda: edit_customer(tree, load_data, role)).pack(side="left", padx=5)
     
     ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
                command=lambda: delete_customer(tree, load_data)).pack(side="left", padx=5)
@@ -127,7 +127,7 @@ def show_customers_module(root, username=None, role=None):
     tree.bind("<Double-1>", on_double_click)   
 
     def refresh():
-        load_data()
+        load_data() 
 
 
 def add_customer(refresh):
@@ -221,7 +221,7 @@ def add_customer(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm khách hàng: {e}", parent=win)
 
 
-def edit_customer(tree, refresh):
+def edit_customer(tree, refresh, role):
     """Sửa thông tin khách hàng"""
     selected = tree.selection()
     if not selected:
@@ -281,7 +281,11 @@ def edit_customer(tree, refresh):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật khách hàng: {e}")
 
-    ttk.Button(frame, text="💾 Lưu thay đổi", style="Add.TButton", command=save).grid(row=5, column=0, columnspan=2, pady=10)
+    #ttk.Button(frame, text="💾 Lưu thay đổi", style="Add.TButton", command=save).grid(row=5, column=0, columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", style="Add.TButton",
+               command=save).pack(ipadx=10, ipady=6)
 
 
 def delete_customer(tree, refresh):

@@ -1,0 +1,133 @@
+# app/utils/id_helpers.py
+
+def generate_next_manv(cursor):
+    """
+    Tạo mã nhân viên tiếp theo (NV00x) dựa trên dữ liệu hiện có trong DB.
+    Trả về mã nhỏ nhất chưa được dùng.
+    """
+    cursor.execute("SELECT MaNV FROM NhanVien")
+    rows = [r.MaNV.strip().upper() for r in cursor.fetchall() if r.MaNV]
+
+    # Lọc các mã hợp lệ NVxxx
+    numbers = []
+    for code in rows:
+        if code.startswith("NV"):
+            try:
+                num = int(code[2:])
+                numbers.append(num)
+            except ValueError:
+                pass
+
+    next_num = 1
+    while next_num in numbers:
+        next_num += 1
+
+    return f"NV{next_num:03d}"
+
+def generate_next_masp(cursor):
+    """
+    Sinh mã MaSP dạng SP001, SP002... dựa trên MaSP hiện có trong bảng SANPHAM.
+    """
+    cursor.execute("SELECT MaSP FROM SANPHAM")
+    rows = [r.MaSP.strip().upper() for r in cursor.fetchall() if r.MaSP]
+    nums = []
+    for code in rows:
+        if code.startswith("SP"):
+            try:
+                nums.append(int(code[2:]))
+            except Exception:
+                pass
+    next_num = 1
+    while next_num in nums:
+        next_num += 1
+    return f"SP{next_num:03d}"
+
+def generate_next_mahd(cursor):
+    """
+    Sinh mã MaHD dạng HD0001, HD0002... dựa trên MaHD hiện có trong bảng HoaDon.
+    """
+    cursor.execute("SELECT MaHD FROM HoaDon")
+    rows = [r.MaHD.strip().upper() for r in cursor.fetchall() if r.MaHD]
+    nums = []
+    for code in rows:
+        if code.startswith("HD"):
+            try:
+                nums.append(int(code[2:]))
+            except Exception:
+                pass
+    next_num = 1
+    while next_num in nums:
+        next_num += 1
+    return f"HD{next_num:04d}"
+
+def generate_next_makh(cursor):
+    """
+    Sinh mã MaKH dạng KH001, KH002...
+    """
+    cursor.execute("SELECT MaKH FROM KhachHang")
+    rows = [r.MaKH.strip().upper() for r in cursor.fetchall() if r.MaKH]
+    nums = []
+    for code in rows:
+        if code.startswith("KH"):
+            try:
+                nums.append(int(code[2:]))
+            except Exception:
+                pass
+    next_num = 1
+    while next_num in nums:
+        next_num += 1
+    return f"KH{next_num:03d}"
+
+def generate_next_macc(cursor):
+    """
+    Sinh mã chấm công (MaCham) mới — tự động tìm khoảng trống nhỏ nhất.
+    Nếu bảng rỗng, bắt đầu từ 1.
+    Ví dụ: [1,2,4] -> trả về 3.
+    """
+    try:
+        cursor.execute("SELECT MaCham FROM ChamCong ORDER BY MaCham ASC")
+        rows = cursor.fetchall()
+        if not rows:
+            return 1
+
+        # Lấy tất cả mã hiện có (chuyển sang int)
+        existing = [r.MaCham for r in rows if r.MaCham is not None]
+
+        # Tìm khoảng trống nhỏ nhất
+        expected = 1
+        for val in existing:
+            if val != expected:
+                break
+            expected += 1
+        return expected
+    except Exception as e:
+        print("[generate_next_macc] Lỗi:", e)
+        return 1
+
+def generate_next_maca(cursor):
+    """
+    Sinh mã ca (MaCa) mới:
+    - Bắt đầu từ 1.
+    - Tự động tìm khoảng trống nhỏ nhất chưa dùng.
+    - Hoạt động tốt dù đã xóa 1 vài ca giữa chừng.
+    """
+    try:
+        cursor.execute("SELECT MaCa FROM CaLam ORDER BY MaCa ASC")
+        rows = cursor.fetchall()
+
+        if not rows:
+            return 1  # nếu bảng rỗng → bắt đầu từ 1
+
+        existing_ids = [r.MaCa for r in rows if r.MaCa is not None]
+        expected = 1
+        for value in existing_ids:
+            if value != expected:
+                # nếu phát hiện khoảng trống
+                return expected
+            expected += 1
+
+        # nếu không có khoảng trống thì tăng tiếp
+        return expected
+    except Exception as e:
+        print(f"[generate_next_maca] Lỗi: {e}")
+        return 1

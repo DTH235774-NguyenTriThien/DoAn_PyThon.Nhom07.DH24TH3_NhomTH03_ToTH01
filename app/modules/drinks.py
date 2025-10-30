@@ -4,8 +4,13 @@ from tkinter import ttk, messagebox
 from decimal import Decimal, InvalidOperation
 from app import db
 from app.db import execute_query
-from app.utils.utils import clear_window, generate_next_masp, create_form_window, safe_delete, go_back, center_window
 from app.theme import setup_styles
+# Các hàm UI chung
+from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# Hàm nghiệp vụ
+from app.utils.business_helpers import safe_delete
+# Hàm sinh mã
+from app.utils.id_helpers import generate_next_masp
 
 
 def show_drinks_module(root, username=None, role=None):

@@ -1,20 +1,23 @@
 # app/ui/mainmenu_frame.py
 import tkinter as tk
 from tkinter import ttk
-from app.utils.utils import clear_window
+# SỬA 1: Import thêm center_window
+from app.utils.utils import clear_window, center_window 
 
-def show_main_menu(root, username, role):
+# =========================================================
+# THAY THẾ TOÀN BỘ HÀM NÀY
+# =========================================================
+def show_main_menu(root, display_name, role):
     clear_window(root)
 
     # ====== WINDOW CONFIG ======
     root.title("☕ Hệ thống quản lý cà phê - Main Menu")
     root.configure(bg="#f5e6ca")
 
+    # SỬA 2: Sử dụng helper center_window
     window_width, window_height = 900, 600
-    screen_width, screen_height = root.winfo_screenwidth(), root.winfo_screenheight()
-    x = int((screen_width / 2) - (window_width / 2))
-    y = int((screen_height / 2) - (window_height / 2))
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    center_window(root, window_width, window_height)
+    
     root.minsize(850, 550)
 
     # ====== HEADER ======
@@ -22,7 +25,7 @@ def show_main_menu(root, username, role):
     header.pack(fill="x")
     tk.Label(
         header,
-        text=f"☕ Xin chào {username} ({role}) ☕",
+        text=f"☕ Xin chào {display_name} ({role}) ☕", # Dùng display_name
         bg="#4b2e05",
         fg="white",
         font=("Segoe UI", 16, "bold")
@@ -30,12 +33,12 @@ def show_main_menu(root, username, role):
 
     # ====== MAIN CONTENT ======
     main = tk.Frame(root, bg="#f5e6ca")
-    main.pack(expand=True, pady=30)
+    main.pack(expand=True, pady=30, fill="both")
 
     # ====== STYLE ======
+    # (Giữ nguyên style của bạn)
     style = ttk.Style()
     style.theme_use("clam")
-
     style.configure(
         "Coffee.TButton",
         font=("Segoe UI", 13, "bold"),
@@ -50,7 +53,6 @@ def show_main_menu(root, username, role):
         background=[("active", "#8b5e34"), ("pressed", "#6f4518")],
         foreground=[("active", "white")],
     )
-
     style.configure(
         "Logout.TButton",
         font=("Segoe UI", 13, "bold"),
@@ -62,9 +64,21 @@ def show_main_menu(root, username, role):
     )
     style.map("Logout.TButton", background=[("active", "#a94442")])
 
-    # ====== GRID BUTTON FRAME ======
-    btn_frame = tk.Frame(main, bg="#f5e6ca")
-    btn_frame.pack(expand=True)
+    # =========================================================
+    # SỬA 3: BỐ CỤC NÚT (Layout 3-2-1)
+    # =========================================================
+    
+    # Frame chính chứa các nút, dùng pack để căn giữa
+    btn_container = tk.Frame(main, bg="#f5e6ca")
+    btn_container.pack(expand=True)
+
+    # --- Hàng 1 (3 nút) ---
+    top_row_frame = tk.Frame(btn_container, bg="#f5e6ca")
+    top_row_frame.pack(pady=15)
+    
+    # --- Hàng 2 (2 nút) ---
+    bottom_row_frame = tk.Frame(btn_container, bg="#f5e6ca")
+    bottom_row_frame.pack(pady=15)
 
     buttons = [
         ("👥 Quản lý nhân viên", lambda: open_employee_module(root)),
@@ -74,31 +88,42 @@ def show_main_menu(root, username, role):
         ("📊 Thống kê", lambda: from_app_open_reports(root)),
     ]
 
-    # Bố trí nút dạng 2 hàng, 3 cột
-    for i, (text, cmd) in enumerate(buttons):
-        row, col = divmod(i, 3)
+    # Thêm 3 nút đầu tiên vào Hàng 1
+    for i in range(3):
+        text, cmd = buttons[i]
         ttk.Button(
-            btn_frame,
+            top_row_frame,
             text=text,
             style="Coffee.TButton",
             width=25,
             command=cmd
-        ).grid(row=row, column=col, padx=30, pady=25)
+        ).pack(side="left", padx=15)
+        
+    # Thêm 2 nút cuối vào Hàng 2
+    for i in range(3, 5):
+        text, cmd = buttons[i]
+        ttk.Button(
+            bottom_row_frame,
+            text=text,
+            style="Coffee.TButton",
+            width=25,
+            command=cmd
+        ).pack(side="left", padx=15)
 
-    # Căn giữa lưới nút
-    for i in range(3):
-        btn_frame.grid_columnconfigure(i, weight=1)
-
-    # ====== LOGOUT BUTTON ======
+    # ====== LOGOUT BUTTON (Hàng 3, 1 nút) ======
     ttk.Button(
-        main,
+        btn_container, # Đưa vào chung container
         text="🚪 Đăng xuất",
         style="Logout.TButton",
         width=25,
         command=lambda: go_back_to_login(root),
-    ).pack(pady=25)
+    ).pack(pady=25) # pack ở cuối sẽ tự động căn giữa
 
-# ----------- HELPER FUNCTIONS --------------
+# =========================================================
+# KẾT THÚC THAY THẾ
+# =========================================================
+
+# ----------- HELPER FUNCTIONS (Giữ nguyên) --------------
 
 def open_employee_module(root):
     from app.modules.employees import show_employee_module

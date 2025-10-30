@@ -1,12 +1,17 @@
+# app/utils/employee/tab_shift.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app import db
 from app.theme import setup_styles
 from datetime import datetime, time
+
+# SỬA 1: Imports
+from app.db import fetch_query, execute_query # Thêm fetch_query
 from app.utils.utils import go_back
 from app.utils.business_helpers import safe_delete, validate_shift_time
 from app.utils.time_helpers import parse_time
 from app.utils.id_helpers import generate_next_maca
+from app.utils.treeview_helpers import fill_treeview_chunked # Thêm helper treeview
 
 def build_tab(parent, root=None, username=None, role=None):
     """Tab Ca làm việc — Quản lý danh sách ca và CRUD cơ bản"""
@@ -22,6 +27,11 @@ def build_tab(parent, root=None, username=None, role=None):
              bg="#f9fafb").pack(side="left", padx=5)
     entry_search = ttk.Entry(top_frame, textvariable=search_var, width=35)
     entry_search.pack(side="left", padx=5)
+    
+    # Label trạng thái
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(top_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
+    status_label.pack(side="left", padx=10)
 
     # ===== TREEVIEW =====
     columns = ["MaCa", "TenCa", "GioBatDau", "GioKetThuc"]
@@ -33,11 +43,13 @@ def build_tab(parent, root=None, username=None, role=None):
         tree.column(col, anchor="center", width=180)
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ===== HÀM LOAD DATA =====
-    def load_data(keyword=None):
-        """Tải danh sách ca làm, hỗ trợ tìm kiếm theo mã, tên, giờ"""
-        for item in tree.get_children():
-            tree.delete(item)
+    # ==================================================
+    # SỬA 2: NÂNG CẤP load_data VỚI fetch_query VÀ chunked
+    # ==================================================
+    def load_data(tree_widget, status_var, keyword=None):
+        """Tải danh sách ca làm, hỗ trợ tìm kiếm và chèn theo từng mẻ (chunked)"""
+        status_var.set("Đang tải dữ liệu...")
+        tree_widget.update_idletasks() # Ép Tkinter cập nhật UI
 
         query = """
             SELECT MaCa, TenCa, GioBatDau, GioKetThuc
@@ -48,60 +60,86 @@ def build_tab(parent, root=None, username=None, role=None):
             kw = f"%{keyword.strip()}%"
             query += """
                 WHERE CAST(MaCa AS NVARCHAR(10)) LIKE ?
-                   OR TenCa LIKE ?
-                   OR FORMAT(GioBatDau, 'HH:mm') LIKE ?
-                   OR FORMAT(GioKetThuc, 'HH:mm') LIKE ?
+                  OR TenCa LIKE ?
+                  OR FORMAT(GioBatDau, 'HH:mm') LIKE ?
+                  OR FORMAT(GioKetThuc, 'HH:mm') LIKE ?
             """
             params = (kw, kw, kw, kw)
+        
+        query += " ORDER BY MaCa"
 
         try:
-            db.cursor.execute(query, params)
-            rows = db.cursor.fetchall()
+            # 1. Lấy dữ liệu (nhanh)
+            rows = db.fetch_query(query, params)
 
+            # 2. Chuẩn bị dữ liệu (nhanh)
+            tree_data = []
             for row in rows:
-                tree.insert("", "end", values=[
-                    row.MaCa,
-                    row.TenCa or "",
-                    row.GioBatDau.strftime("%H:%M") if row.GioBatDau else "",
-                    row.GioKetThuc.strftime("%H:%M") if row.GioKetThuc else ""
-                ])
+                # Truy cập bằng dict key
+                maca = row["MaCa"]
+                tenca = row["TenCa"] or ""
+                
+                # Định dạng giờ, xử lý None
+                giobd_obj = row["GioBatDau"]
+                giobd = giobd_obj.strftime("%H:%M") if giobd_obj else ""
+                
+                giokt_obj = row["GioKetThuc"]
+                giokt = giokt_obj.strftime("%H:%M") if giokt_obj else ""
+
+                values_tuple = (maca, tenca, giobd, giokt)
+                
+                # Dùng MaCa làm iid
+                tree_data.append({"iid": maca, "values": values_tuple})
+
+            # 3. "Vẽ" lên TreeView (mượt mà)
+            def on_load_complete():
+                status_var.set(f"Đã tải {len(rows)} ca làm.")
+                
+            fill_treeview_chunked(
+                tree=tree_widget, 
+                rows=tree_data, 
+                batch=100,
+                on_complete=on_load_complete
+            )
+
         except Exception as e:
+            status_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu ca làm: {e}")
 
-    load_data()
+    # ===== CÁC NÚT CHỨC NĂNG (Cập nhật command) =====
+    def refresh_data():
+        load_data(tree, status_label_var)
 
-    # ===== CÁC NÚT CHỨC NĂNG =====
     ttk.Button(top_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
+               command=refresh_data).pack(side="left", padx=5)
     ttk.Button(top_frame, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_shift(load_data)).pack(side="left", padx=5)
+               command=lambda: add_shift(refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_shift(tree, load_data)).pack(side="left", padx=5)
+               command=lambda: edit_shift(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_shift(tree, load_data)).pack(side="left", padx=5)
+               command=lambda: delete_shift(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
 
-    # ===== SỰ KIỆN TÌM KIẾM REALTIME =====
+    # ===== SỰ KIỆN TÌM KIẾM REALTIME (Cập nhật command) =====
     def on_search_change(event=None):
         keyword = search_var.get().strip()
-        load_data(keyword)
+        load_data(tree, status_label_var, keyword)
     entry_search.bind("<KeyRelease>", on_search_change)
 
-    # ===== DOUBLE CLICK TO EDIT =====
+    # ===== DOUBLE CLICK TO EDIT (Cập nhật command) =====
     def on_double_click(_):
         sel = tree.selection()
         if sel:
-            edit_shift(tree, load_data)
+            edit_shift(tree, refresh_data)
     tree.bind("<Double-1>", on_double_click)
+    
+    # Tải lần đầu
+    refresh_data()
 
 # ==============================================================
 #  HÀM CRUD
 # ==============================================================
-from tkinter import messagebox, ttk
-import tkinter as tk
-from app import db
-from app.utils.utils import parse_time  # dùng helper chuẩn của bạn
 
 def add_shift(refresh):
     """Thêm ca làm mới — đồng bộ với edit_shift (có auto-fill giờ và combobox)"""
@@ -159,7 +197,6 @@ def add_shift(refresh):
             bd = cb_batdau.get().strip()
             kt = cb_ketthuc.get().strip()
 
-                
             # ===== GỌI HELPER tự động tạo mã ca ===== #
             maca = generate_next_maca(db.cursor)
 
@@ -172,29 +209,31 @@ def add_shift(refresh):
                 return
 
             # ===== KIỂM TRA GIỜ HỢP LỆ (GỌI HELPER) =====
-            if not validate_shift_time(bd, kt, exclude_maca=maca, parent=win, allow_partial_overlap=False):
+            # (Giữ nguyên logic allow_partial_overlap=True của bạn)
+            if not validate_shift_time(bd, kt, exclude_maca=maca, parent=win, allow_partial_overlap=True):
                 return
 
-            # ===== THÊM VÀO DATABASE =====
-            db.cursor.execute("""
+            # ===== THÊM VÀO DATABASE (SỬA 3: Dùng execute_query) =====
+            query = """
                 INSERT INTO CaLam (MaCa, TenCa, GioBatDau, GioKetThuc)
                 VALUES (?, ?, ?, ?)
-            """, (maca, ten, bd, kt))
-            db.conn.commit()
-
-            messagebox.showinfo("✅ Thành công", f"Đã thêm ca làm '{ten}'.", parent=win)
-            win.destroy()
-            refresh()
+            """
+            
+            if db.execute_query(query, (maca, ten, bd, kt)):
+                messagebox.showinfo("✅ Thành công", f"Đã thêm ca làm '{ten}'.", parent=win)
+                win.destroy()
+                refresh()
+            # (Không cần db.cursor.execute, db.conn.commit và try/except/rollback)
 
         except Exception as e:
-            db.conn.rollback()
+            # Bắt các lỗi khác (ví dụ: lỗi logic, không phải lỗi SQL)
             messagebox.showerror("Lỗi", f"Không thể thêm ca làm: {e}", parent=win)
 
 
-    ttk.Button(form, text="💾 Lưu ca làm", style="Add.TButton",
-               command=submit).grid(row=4, column=0, columnspan=2, pady=15)
-
-    form.grid_columnconfigure(1, weight=1)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
 
 
 def edit_shift(tree, refresh):
@@ -203,9 +242,11 @@ def edit_shift(tree, refresh):
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn ca làm cần sửa!")
         return
-
-    values = tree.item(selected[0])["values"]
-    maca, tenca, giobd, giokt = values
+    
+    # SỬA 4: Lấy iid (maca) trực tiếp từ selection
+    maca = selected[0]
+    values = tree.item(maca)["values"]
+    _, tenca, giobd, giokt = values # Bỏ qua maca (values[0]) vì đã có
 
     win = tk.Toplevel()
     win.title(f"✏️ Sửa ca làm {maca}")
@@ -271,28 +312,31 @@ def edit_shift(tree, refresh):
                 return
 
             # ===== KIỂM TRA GIỜ HỢP LỆ =====
-            if not validate_shift_time(bd, kt, exclude_maca=maca, parent=win):
+            # (Giữ nguyên logic allow_partial_overlap=True của bạn)
+            if not validate_shift_time(bd, kt, exclude_maca=maca, parent=win, allow_partial_overlap=True):
                 return
 
-            # ===== CẬP NHẬT DATABASE =====
-            db.cursor.execute("""
+            # ===== CẬP NHẬT DATABASE (SỬA 5: Dùng execute_query) =====
+            query = """
                 UPDATE CaLam
                 SET TenCa=?, GioBatDau=?, GioKetThuc=?
                 WHERE MaCa=?
-            """, (ten, bd, kt, maca))
-            db.conn.commit()
-
-            messagebox.showinfo("✅ Thành công", f"Đã cập nhật ca làm {maca}.", parent=win)
-            refresh()
-            win.destroy()
-
+            """
+            
+            if db.execute_query(query, (ten, bd, kt, maca)):
+                messagebox.showinfo("✅ Thành công", f"Đã cập nhật ca làm {maca}.", parent=win)
+                refresh()
+                win.destroy()
+            # (Không cần db.cursor.execute, db.conn.commit và try/except/rollback)
+            
         except Exception as e:
-            db.conn.rollback()
             messagebox.showerror("Lỗi", f"Không thể cập nhật ca làm: {e}", parent=win)
-        
+    
 
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton",
-               command=save).grid(row=5, column=0, columnspan=2, pady=15)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: save()).pack(ipadx=10, ipady=6)
 
 
 def delete_shift(tree, refresh):
@@ -302,8 +346,8 @@ def delete_shift(tree, refresh):
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần xóa!")
         return
 
-    values = tree.item(selected[0])["values"]
-    maca = values[0]  # cột đầu tiên luôn là Maca
+    # SỬA 6: Lấy iid (maca) trực tiếp
+    maca = selected[0] 
 
     try:
         safe_delete(

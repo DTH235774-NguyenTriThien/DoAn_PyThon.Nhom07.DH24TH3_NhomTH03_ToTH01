@@ -1,370 +1,441 @@
+# app/utils/employee/tab_attendance.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
-from datetime import datetime, date
 from app import db
-from app.db import execute_query
+from app.theme import setup_styles
+from datetime import datetime
+
+# SỬA 1: Imports
+from app.db import fetch_query, execute_query
 from app.utils.utils import go_back
+from app.utils.business_helpers import safe_delete
 from app.utils.time_helpers import (
     format_for_display, parse_date, parse_time, 
     combine_date_time, normalize_date_input
 )
 from app.utils.id_helpers import generate_next_macc
-from app.utils.business_helpers import safe_delete
-from app.theme import setup_styles
-
+from app.utils.treeview_helpers import fill_treeview_chunked
 
 def build_tab(parent, root=None, username=None, role=None):
-    """Tab Chấm công — hiển thị, tìm kiếm và CRUD cơ bản"""
+    """Tab Chấm công — Đồng bộ layout giống tab_shift"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
 
-    # ===== THANH CÔNG CỤ =====
+    # ===== THANH CÔNG CỤ (TOP FRAME) =====
     top_frame = tk.Frame(parent, bg="#f9fafb")
-    top_frame.pack(fill="x", pady=10)
+    top_frame.pack(fill="x", pady=10, padx=10) 
 
-    search_var = tk.StringVar()
-    tk.Label(top_frame, text="🔎 Tìm chấm công:", font=("Arial", 11),
-             bg="#f9fafb").pack(side="left", padx=5)
-    entry_search = ttk.Entry(top_frame, textvariable=search_var, width=40)
-    entry_search.pack(side="left", padx=5)
+    # --- Frame NÚT CHỨC NĂNG (Bên phải) ---
+    # (Tất cả các nút đều nằm bên phải, giống tab_shift)
+    btn_frame = tk.Frame(top_frame, bg="#f9fafb")
+    btn_frame.pack(side="right", anchor="n", padx=(10, 0)) # Nằm bên phải
+    
+    ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
+               command=lambda: refresh_data()).pack(side="left", padx=5)
+    ttk.Button(btn_frame, text="➕ Chấm công", style="Add.TButton",
+               command=lambda: add_attendance(refresh_data, cal_filter.get_date())).pack(side="left", padx=5)
+    ttk.Button(btn_frame, text="✏️ Sửa", style="Edit.TButton",
+               command=lambda: edit_attendance(tree, refresh_data)).pack(side="left", padx=5)
+    ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
+               command=lambda: delete_attendance(tree, refresh_data)).pack(side="left", padx=5)
+    ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
+               command=lambda: go_back(root, username, role)).pack(side="left", padx=5)
+
+    # --- Frame LỌC (Bên trái, tự mở rộng) ---
+    filter_frame = tk.Frame(top_frame, bg="#f9fafb")
+    filter_frame.pack(side="left", fill="x", expand=True) # Tự lấp đầy
+
+    tk.Label(filter_frame, text="📅 Lọc theo ngày:", font=("Arial", 11),
+             bg="#f9fafb").pack(side="left", padx=(5, 2))
+    cal_filter = DateEntry(filter_frame, date_pattern="dd/mm/yyyy", font=("Arial", 11),
+                           background="#3e2723", foreground="white", borderwidth=2,
+                           width=12) 
+    cal_filter.pack(side="left", padx=5)
+    cal_filter.set_date(datetime.now()) 
+
+    tk.Label(filter_frame, text="🔎 Tìm nhân viên:", font=("Arial", 11),
+             bg="#f9fafb").pack(side="left", padx=(10, 2))
+    entry_search = ttk.Entry(filter_frame, width=30) 
+    entry_search.pack(side="left", padx=5, fill="x", expand=True) 
+
+    # Label trạng thái
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
+    status_label.pack(side="left", padx=10)
+
 
     # ===== TREEVIEW =====
-    columns = ["MaCham", "MaNV", "HoTen", "TenCa", "NgayLam", "ClockIn", "ClockOut", "GhiChu"]
+    columns = ["MaCham", "MaNV", "HoTen", "NgayLam", "TenCa", "ClockIn", "ClockOut", "GhiChu"]
     headers = {
-        "MaCham": "Mã CC",
+        "MaCham": "Mã Chấm",
         "MaNV": "Mã NV",
-        "HoTen": "Họ tên",
-        "TenCa": "Ca làm",
-        "NgayLam": "Ngày làm",
-        "ClockIn": "Giờ vào",
-        "ClockOut": "Giờ ra",
-        "GhiChu": "Ghi chú"
+        "HoTen": "Họ Tên",
+        "NgayLam": "Ngày Làm",
+        "TenCa": "Ca Làm",
+        "ClockIn": "Giờ Vào",
+        "ClockOut": "Giờ Ra",
+        "GhiChu": "Ghi Chú"
     }
 
     tree = ttk.Treeview(parent, columns=columns, show="headings", height=15)
-    for col in columns:
-        tree.heading(col, text=headers[col])
-        tree.column(col, anchor="center", width=120 if col != "GhiChu" else 200)
+    for col, text in headers.items():
+        tree.heading(col, text=text)
+        tree.column(col, anchor="center", width=120)
+    
+    # Điều chỉnh cột
+    tree.column("MaCham", width=80)
+    tree.column("MaNV", width=80)
+    tree.column("HoTen", width=150)
+    tree.column("TenCa", width=100)
+    tree.column("ClockIn", width=80)
+    tree.column("ClockOut", width=80)
+    tree.column("GhiChu", width=200, anchor="center") 
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ===== LOAD DATA =====
-    def load_data(keyword=None):
-        """Tải danh sách chấm công, có tìm kiếm và bao gồm MaCa thật."""
-        for item in tree.get_children():
-            tree.delete(item)
+    # (Hàm load_data giữ nguyên như cũ)
+    def load_data(tree_widget, status_var, filter_date, filter_keyword):
+        status_var.set("Đang tải dữ liệu...")
+        tree_widget.update_idletasks() 
 
         query = """
-            SELECT c.MaCham, c.MaNV, nv.HoTen, c.MaCa, cl.TenCa,
-                c.NgayLam, c.ClockIn, c.ClockOut, c.GhiChu
-            FROM ChamCong c
-            LEFT JOIN NhanVien nv ON c.MaNV = nv.MaNV
-            LEFT JOIN CaLam cl ON c.MaCa = cl.MaCa
+            SELECT 
+                cc.MaCham, cc.MaNV, nv.HoTen, cc.NgayLam, 
+                cl.TenCa, cc.ClockIn, cc.ClockOut, cc.GhiChu
+            FROM ChamCong cc
+            LEFT JOIN NhanVien nv ON cc.MaNV = nv.MaNV
+            LEFT JOIN CaLam cl ON cc.MaCa = cl.MaCa
+            WHERE 1=1
         """
-        params = ()
-
-        if keyword:
-            kw = f"%{keyword.strip()}%"
-            query += """
-                WHERE c.MaNV LIKE ? OR nv.HoTen LIKE ? OR cl.TenCa LIKE ?
-            """
-            params = (kw, kw, kw)
+        params = []
+        try:
+            date_obj = cal_filter.get_date()
+            query += " AND cc.NgayLam = ? "
+            params.append(date_obj)
+        except Exception:
+            pass 
+        if filter_keyword:
+            kw = f"%{filter_keyword.strip()}%"
+            query += " AND (cc.MaNV LIKE ? OR nv.HoTen LIKE ?) "
+            params.extend([kw, kw])
+        query += " ORDER BY cc.NgayLam DESC, cc.ClockIn DESC"
 
         try:
-            db.cursor.execute(query, params)
-            rows = db.cursor.fetchall()
-
+            rows = db.fetch_query(query, tuple(params))
+            tree_data = []
             for row in rows:
-                macham = row.MaCham
-                manv = row.MaNV
-                hoten = row.HoTen or ""
-                maca = row.MaCa if row.MaCa else ""
-                tenca = row.TenCa or ""
-                calam_display = f"{maca} - {tenca}" if maca else tenca
+                macham = row["MaCham"]
+                manv = row["MaNV"]
+                hoten = row["HoTen"] or ""
+                ngaylam_obj = row["NgayLam"]
+                ngaylam = ngaylam_obj.strftime("%d/%m/%Y") if ngaylam_obj else ""
+                tenca = row["TenCa"] or "N/A"
+                clockin_obj = row["ClockIn"]
+                clockin = clockin_obj.strftime("%H:%M") if clockin_obj else "--:--"
+                clockout_obj = row["ClockOut"]
+                clockout = clockout_obj.strftime("%H:%M") if clockout_obj else "--:--"
+                ghichu = row["GhiChu"] or ""
+                values_tuple = (macham, manv, hoten, ngaylam, tenca, clockin, clockout, ghichu)
+                tree_data.append({"iid": macham, "values": values_tuple})
 
-                ngay_lam = format_for_display(row.NgayLam)
-                clockin = row.ClockIn.strftime("%H:%M") if row.ClockIn else ""
-                clockout = row.ClockOut.strftime("%H:%M") if row.ClockOut else ""
-                ghichu = row.GhiChu or ""
-
-                # ✅ Chèn vào tree: thêm MaCa vào value nhưng ẩn (nếu muốn)
-                tree.insert(
-                    "",
-                    "end",
-                    values=[macham, manv, hoten, calam_display, ngay_lam, clockin, clockout, ghichu],
-                )
-
+            def on_load_complete():
+                status_var.set(f"Đã tải {len(rows)} bản ghi.")
+                
+            fill_treeview_chunked(
+                tree=tree_widget, 
+                rows=tree_data, 
+                batch=100,
+                on_complete=on_load_complete
+            )
         except Exception as e:
+            status_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu chấm công: {e}")
 
-    load_data()
+    # ===== CÁC NÚT CHỨC NĂNG (Cập nhật command) =====
+    def refresh_data():
+        filter_date = cal_filter.get()
+        filter_keyword = entry_search.get().strip()
+        load_data(tree, status_label_var, filter_date, filter_keyword)
 
-    # ===== NÚT CHỨC NĂNG =====
-    ttk.Button(top_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_attendance(load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_attendance(tree, load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_attendance(tree, load_data)).pack(side="left", padx=5)
-    ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+    # ===== SỰ KIỆN TÌM KIẾM REALTIME (Cập nhật command) =====
+    cal_filter.bind("<<DateEntrySelected>>", lambda e: refresh_data())
+    entry_search.bind("<KeyRelease>", lambda e: refresh_data())
 
-    # ===== SỰ KIỆN TÌM KIẾM REALTIME =====
-    def on_search_change(event=None):
-        keyword = search_var.get().strip()
-        load_data(keyword)
-    entry_search.bind("<KeyRelease>", on_search_change)
-
-    # ===== DOUBLE CLICK TO EDIT =====
+    # ===== DOUBLE CLICK TO EDIT (Cập nhật command) =====
     def on_double_click(_):
         sel = tree.selection()
         if sel:
-            edit_attendance(tree, load_data)
+            edit_attendance(tree, refresh_data)
     tree.bind("<Double-1>", on_double_click)
+    
+    # Tải lần đầu
+    refresh_data()
+
+# ==============================================================
+#  HÀM CRUD
+# ==============================================================
+
+# Biến cache cho ComboBox Nhân viên và Ca làm
+_employee_list = None
+_shift_list = None
+
+def fetch_combobox_data():
+    """Tải và cache danh sách NV, Ca làm để dùng trong form Add/Edit"""
+    global _employee_list, _shift_list
+    if _employee_list is None:
+        # Lấy NV (Mã - Tên)
+        rows = db.fetch_query("SELECT MaNV, HoTen FROM NhanVien WHERE TrangThai = N'Đang làm' ORDER BY HoTen")
+        _employee_list = [f"{r['MaNV']} - {r['HoTen']}" for r in rows]
+    
+    if _shift_list is None:
+        # Lấy Ca (Mã - Tên - Giờ)
+        rows = db.fetch_query("SELECT MaCa, TenCa, GioBatDau, GioKetThuc FROM CaLam ORDER BY GioBatDau")
+        _shift_list = [f"{r['MaCa']} - {r['TenCa']} ({r['GioBatDau'].strftime('%H:%M')} - {r['GioKetThuc'].strftime('%H:%M')})" for r in rows if r['GioBatDau'] and r['GioKetThuc']]
 
 
-# ===================== CRUD (tạm thời khung) ===================== #
+def add_attendance(refresh, default_date=None):
+    """Thêm bản ghi chấm công mới"""
+    fetch_combobox_data() # Đảm bảo có dữ liệu cho ComboBox
 
-def add_attendance(refresh):
-    """Thêm bản ghi chấm công — có combobox ca làm, giờ vào/ra tự động điền."""
     win = tk.Toplevel()
     win.title("➕ Thêm chấm công")
-    win.geometry("500x420")
+    win.geometry("450x400")
     win.configure(bg="#f8f9fa")
 
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=20, pady=15, fill="both", expand=True)
 
-    # === Mã nhân viên ===
-    ttk.Label(form, text="Mã nhân viên:", background="#f8f9fa", font=("Arial", 11)).grid(row=0, column=0, sticky="w", pady=6)
-    cb_nv = ttk.Combobox(form, font=("Arial", 11))
-    cb_nv.grid(row=0, column=1, sticky="ew", padx=8, pady=6)
+    labels = ["Nhân viên", "Ngày làm", "Ca làm", "Giờ vào (HH:MM)", "Giờ ra (HH:MM)", "Ghi chú"]
+    entries = {}
 
-    # Nạp danh sách nhân viên
-    db.cursor.execute("SELECT MaNV, HoTen FROM NhanVien WHERE TrangThai = N'Đang làm'")
-    nv_list = [f"{row.MaNV.strip()} - {row.HoTen}" for row in db.cursor.fetchall()]
-    cb_nv["values"] = nv_list
+    for i, text in enumerate(labels):
+        ttk.Label(form, text=text, font=("Arial", 11),
+                  background="#f8f9fa").grid(row=i, column=0, sticky="w", padx=8, pady=6)
+        
+        if text == "Nhân viên":
+            cb = ttk.Combobox(form, values=_employee_list, state="readonly", font=("Arial", 11))
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+        elif text == "Ca làm":
+            cb = ttk.Combobox(form, values=_shift_list, state="normal", font=("Arial", 11))
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+        elif text == "Ngày làm":
+            cal = DateEntry(form, date_pattern="dd/mm/yyyy", font=("Arial", 11),
+                            background="#3e2723", foreground="white", borderwidth=2)
+            if default_date:
+                cal.set_date(default_date)
+            cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cal
+        else:
+            entry = ttk.Entry(form, font=("Arial", 11))
+            entry.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = entry
 
-    # === Ca làm ===
-    ttk.Label(form, text="Ca làm:", background="#f8f9fa", font=("Arial", 11)).grid(row=1, column=0, sticky="w", pady=6)
-    cb_ca = ttk.Combobox(form, font=("Arial", 11))
-    cb_ca.grid(row=1, column=1, sticky="ew", padx=8, pady=6)
+    # Gợi ý giờ vào là giờ hiện tại
+    entries["Giờ vào (HH:MM)"].insert(0, datetime.now().strftime("%H:%M"))
 
-    db.cursor.execute("SELECT MaCa, TenCa, GioBatDau, GioKetThuc FROM CaLam")
-    shift_rows = db.cursor.fetchall()
-    ca_map = {str(row.MaCa): (row.TenCa, row.GioBatDau, row.GioKetThuc) for row in shift_rows}
-    cb_ca["values"] = [f"{row.MaCa} - {row.TenCa}" for row in shift_rows]
-
-    # === Ngày làm ===
-    ttk.Label(form, text="Ngày làm:", background="#f8f9fa", font=("Arial", 11)).grid(row=2, column=0, sticky="w", pady=6)
-    cal_ngay = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11))
-    cal_ngay.grid(row=2, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Giờ vào / Giờ ra ===
-    ttk.Label(form, text="Giờ vào:", background="#f8f9fa", font=("Arial", 11)).grid(row=3, column=0, sticky="w", pady=6)
-    ttk.Label(form, text="Giờ ra:", background="#f8f9fa", font=("Arial", 11)).grid(row=4, column=0, sticky="w", pady=6)
-
-    time_options = [f"{h:02d}:00" for h in range(0, 24)]
-    cb_giovao = ttk.Combobox(form, values=time_options, font=("Arial", 11))
-    cb_giora = ttk.Combobox(form, values=time_options, font=("Arial", 11))
-    cb_giovao.grid(row=3, column=1, padx=8, pady=6, sticky="ew")
-    cb_giora.grid(row=4, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Auto-fill giờ khi chọn ca ===
-    def auto_fill_shift(event=None):
-        try:
-            selected = cb_ca.get().split(" - ")[0].strip()
-            if selected in ca_map:
-                _, gio_bd, gio_kt = ca_map[selected]
-                cb_giovao.set(gio_bd.strftime("%H:%M") if gio_bd else "")
-                cb_giora.set(gio_kt.strftime("%H:%M") if gio_kt else "")
-        except Exception as e:
-            return
-
-    cb_ca.bind("<<ComboboxSelected>>", auto_fill_shift)
-
-    # === Ghi chú ===
-    ttk.Label(form, text="Ghi chú:", background="#f8f9fa", font=("Arial", 11)).grid(row=5, column=0, sticky="w", pady=6)
-    txt_note = ttk.Entry(form, font=("Arial", 11))
-    txt_note.grid(row=5, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Nút lưu ===
+    form.grid_columnconfigure(1, weight=1)
+    
     def submit():
         try:
-            manv = cb_nv.get().split(" - ")[0].strip()
-            maca = cb_ca.get().split(" - ")[0].strip()
-            ngay_lam = cal_ngay.get_date()
-            gio_vao = cb_giovao.get().strip()
-            gio_ra = cb_giora.get().strip()
-            ghichu = txt_note.get().strip() or None
+            # 1. Lấy và chuẩn hóa dữ liệu
+            nv_text = entries["Nhân viên"].get().split(" - ")[0].strip()
+            ngay_lam = entries["Ngày làm"].get_date()
+            
+            ca_text = entries["Ca làm"].get()
+            maca = ca_text.split(" - ")[0].strip() if " - " in ca_text else None
+            
+            gio_vao_str = entries["Giờ vào (HH:MM)"].get().strip()
+            gio_ra_str = entries["Giờ ra (HH:MM)"].get().strip()
+            ghi_chu = entries["Ghi chú"].get().strip()
 
-            if not manv or not maca:
-                messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng chọn nhân viên và ca làm.", parent=win)
+            if not nv_text or not ngay_lam:
+                messagebox.showwarning("Thiếu thông tin", "Nhân viên và Ngày làm là bắt buộc.", parent=win)
                 return
 
-            # Giờ hợp lệ
-            if gio_ra and gio_vao:
-                t_in = datetime.strptime(gio_vao, "%H:%M")
-                t_out = datetime.strptime(gio_ra, "%H:%M")
-                if t_out <= t_in:
-                    messagebox.showwarning("Giờ không hợp lệ", "⚠️ Giờ ra phải lớn hơn giờ vào.", parent=win)
-                    return
+            # Kết hợp Ngày + Giờ
+            clock_in_dt = combine_date_time(ngay_lam, gio_vao_str)
+            clock_out_dt = combine_date_time(ngay_lam, gio_ra_str)
+            
+            # Nếu nhập 'ca' nhưng không nhập giờ, thử tự động lấy giờ
+            if maca and (not clock_in_dt or not clock_out_dt):
+                pass # (Có thể thêm logic tự lấy giờ ca ở đây nếu muốn)
 
-            clock_in = combine_date_time(ngay_lam, gio_vao)
-            clock_out = combine_date_time(ngay_lam, gio_ra)
+            # ==================================================
+            # THÊM VALIDATION ĐỂ SỬA LỖI
+            # ==================================================
+            if clock_in_dt and clock_out_dt and clock_out_dt < clock_in_dt:
+                messagebox.showwarning("Lỗi Logic", 
+                                      "Giờ ra (ClockOut) không thể nhỏ hơn Giờ vào (ClockIn) trong cùng một ngày.", 
+                                      parent=win)
+                return
+            # ==================================================            
 
-            # === GỌI HELPER SINH MÃ CHẤM CÔNG ===
-            macham = generate_next_macc(db.cursor)
+            # 2. Lấy MaCham mới
+            macham = generate_next_macc(db.cursor) # Dùng helper sinh mã
 
-            # === GHI VÀO DB ===
+            # 3. Lưu (SỬA 3: Dùng execute_query)
             query = """
                 INSERT INTO ChamCong (MaCham, MaNV, MaCa, NgayLam, ClockIn, ClockOut, GhiChu)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            params = (macham, manv, maca, ngay_lam, clock_in, clock_out, ghichu)
-            if execute_query(query, params):
-                messagebox.showinfo("✅ Thành công", f"Đã thêm chấm công cho NV {manv}.", parent=win)
+            params = (macham, nv_text, maca, ngay_lam, clock_in_dt, clock_out_dt, ghi_chu)
+            
+            if db.execute_query(query, params):
+                messagebox.showinfo("Thành công", "Đã thêm bản ghi chấm công.", parent=win)
                 win.destroy()
                 refresh()
-
+            
         except Exception as e:
-            db.conn.rollback()
             messagebox.showerror("Lỗi", f"Không thể thêm chấm công: {e}", parent=win)
 
-    ttk.Button(form, text="💾 Lưu chấm công", style="Add.TButton", command=submit).grid(row=6, column=0, columnspan=2, pady=10)
-    form.grid_columnconfigure(1, weight=1)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
+
 
 def edit_attendance(tree, refresh):
-    """Sửa bản ghi chấm công (đồng bộ cấu trúc với add_attendance)"""
+    """Sửa bản ghi chấm công"""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần sửa!")
         return
-
-    # --- Lấy dữ liệu hiện tại ---
-    values = tree.item(selected[0])["values"]
-    macham, manv, hoten, tenca, ngaylam, clockin, clockout, ghichu = values
+    
+    # SỬA 4: Lấy iid (MaCham) trực tiếp
+    macham = selected[0]
+    
+    # Lấy dữ liệu thô từ CSDL để sửa (chính xác hơn là từ TreeView)
+    row = db.fetch_query("SELECT * FROM ChamCong WHERE MaCham = ?", (macham,))
+    if not row:
+        messagebox.showerror("Lỗi", "Không tìm thấy bản ghi chấm công!")
+        return
+    
+    current = row[0] # fetch_query trả về list[dict]
+    fetch_combobox_data() # Tải data cho ComboBox
 
     win = tk.Toplevel()
-    win.title(f"✏️ Sửa chấm công #{macham}")
-    win.geometry("460x480")
+    win.title(f"✏️ Sửa chấm công {macham}")
+    win.geometry("450x400")
     win.configure(bg="#f8f9fa")
 
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=20, pady=15, fill="both", expand=True)
 
-    # === Mã chấm công / Nhân viên (readonly) ===
-    ttk.Label(form, text=f"Mã chấm công: {macham}", font=("Arial", 11, "bold"), background="#f8f9fa").grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
-    ttk.Label(form, text=f"Nhân viên: {manv} - {hoten}", font=("Arial", 11), background="#f8f9fa").grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
+    labels = ["Nhân viên", "Ngày làm", "Ca làm", "Giờ vào (HH:MM)", "Giờ ra (HH:MM)", "Ghi chú"]
+    entries = {}
 
-    # === Ca làm ===
-    ttk.Label(form, text="Ca làm", font=("Arial", 11), background="#f8f9fa").grid(row=2, column=0, sticky="w", padx=8, pady=6)
-    cb_calam = ttk.Combobox(form, font=("Arial", 11))
-    try:
-        db.cursor.execute("SELECT MaCa, TenCa FROM CaLam ORDER BY MaCa")
-        calam_list = [f"{row.MaCa} - {row.TenCa}" for row in db.cursor.fetchall()]
-        cb_calam["values"] = calam_list
-    except Exception:
-        cb_calam["values"] = []
-    cb_calam.set(f"{tenca}")  # hiển thị tên ca hiện tại
-    cb_calam.grid(row=2, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Ngày làm ===
-    ttk.Label(form, text="Ngày làm", font=("Arial", 11), background="#f8f9fa").grid(row=3, column=0, sticky="w", padx=8, pady=6)
-    cal_ngay = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11))
-    try:
-        cal_ngay.set_date(parse_date(ngaylam))
-    except Exception:
-        cal_ngay.set_date(datetime.now().date())
-    cal_ngay.grid(row=3, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Giờ vào / ra ===
-    ttk.Label(form, text="Giờ vào", font=("Arial", 11), background="#f8f9fa").grid(row=4, column=0, sticky="w", padx=8, pady=6)
-    ent_in = ttk.Entry(form, font=("Arial", 11))
-    ent_in.insert(0, str(clockin).strip() if clockin else "")
-    ent_in.grid(row=4, column=1, padx=8, pady=6, sticky="ew")
-
-    ttk.Label(form, text="Giờ ra", font=("Arial", 11), background="#f8f9fa").grid(row=5, column=0, sticky="w", padx=8, pady=6)
-    ent_out = ttk.Entry(form, font=("Arial", 11))
-    ent_out.insert(0, str(clockout).strip() if clockout else "")
-    ent_out.grid(row=5, column=1, padx=8, pady=6, sticky="ew")
-
-    # === Ghi chú ===
-    ttk.Label(form, text="Ghi chú", font=("Arial", 11), background="#f8f9fa").grid(row=6, column=0, sticky="nw", padx=8, pady=6)
-    txt_note = tk.Text(form, font=("Arial", 11), height=3, width=25)
-    txt_note.insert("1.0", str(ghichu or ""))
-    txt_note.grid(row=6, column=1, padx=8, pady=6, sticky="ew")
+    for i, text in enumerate(labels):
+        ttk.Label(form, text=text, font=("Arial", 11),
+                  background="#f8f9fa").grid(row=i, column=0, sticky="w", padx=8, pady=6)
+        
+        if text == "Nhân viên":
+            cb = ttk.Combobox(form, values=_employee_list, state="readonly", font=("Arial", 11))
+            # Tìm giá trị khớp
+            for item in _employee_list:
+                if item.startswith(current["MaNV"]):
+                    cb.set(item)
+                    break
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+        elif text == "Ca làm":
+            cb = ttk.Combobox(form, values=_shift_list, state="normal", font=("Arial", 11))
+            # Tìm giá trị khớp
+            if current["MaCa"]:
+                for item in _shift_list:
+                    if item.startswith(str(current["MaCa"])):
+                        cb.set(item)
+                        break
+            cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cb
+        elif text == "Ngày làm":
+            cal = DateEntry(form, date_pattern="dd/mm/yyyy", font=("Arial", 11),
+                            background="#3e2723", foreground="white", borderwidth=2)
+            cal.set_date(current["NgayLam"])
+            cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = cal
+        else:
+            entry = ttk.Entry(form, font=("Arial", 11))
+            if text == "Giờ vào (HH:MM)" and current["ClockIn"]:
+                entry.insert(0, current["ClockIn"].strftime("%H:%M"))
+            elif text == "Giờ ra (HH:MM)" and current["ClockOut"]:
+                entry.insert(0, current["ClockOut"].strftime("%H:%M"))
+            elif text == "Ghi chú":
+                entry.insert(0, current["GhiChu"] or "")
+            entry.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
+            entries[text] = entry
 
     form.grid_columnconfigure(1, weight=1)
-
-    # === Hàm Lưu thay đổi ===
+    
     def save():
         try:
-            maca_str = cb_calam.get().strip().split(" - ")[0]
-            maca = int(maca_str) if maca_str.isdigit() else None
-            ngay_lam = normalize_date_input(cal_ngay.get_date())
+            # 1. Lấy và chuẩn hóa dữ liệu
+            nv_text = entries["Nhân viên"].get().split(" - ")[0].strip()
+            ngay_lam = entries["Ngày làm"].get_date()
+            
+            ca_text = entries["Ca làm"].get()
+            maca = ca_text.split(" - ")[0].strip() if " - " in ca_text else None
+            
+            gio_vao_str = entries["Giờ vào (HH:MM)"].get().strip()
+            gio_ra_str = entries["Giờ ra (HH:MM)"].get().strip()
+            ghi_chu = entries["Ghi chú"].get().strip()
 
-            giovao = ent_in.get().strip()
-            giora = ent_out.get().strip()
-            ghichu_new = txt_note.get("1.0", "end").strip() or None
-
-            # --- kiểm tra dữ liệu ---
-            if not maca:
-                messagebox.showwarning("Thiếu thông tin", "⚠️ Vui lòng chọn ca làm hợp lệ.", parent=win)
+            if not nv_text or not ngay_lam:
+                messagebox.showwarning("Thiếu thông tin", "Nhân viên và Ngày làm là bắt buộc.", parent=win)
                 return
 
-            if giovao and giora:
-                start_dt = combine_date_time(ngay_lam, giovao)
-                end_dt = combine_date_time(ngay_lam, giora)
-                if not start_dt or not end_dt:
-                    messagebox.showwarning("Định dạng sai", "⚠️ Giờ vào / giờ ra phải có dạng HH:MM.", parent=win)
-                    return
-                if end_dt <= start_dt:
-                    messagebox.showwarning("Giờ không hợp lệ", "⚠️ Giờ ra phải lớn hơn giờ vào.", parent=win)
-                    return
-            else:
-                start_dt, end_dt = None, None
+            clock_in_dt = combine_date_time(ngay_lam, gio_vao_str)
+            clock_out_dt = combine_date_time(ngay_lam, gio_ra_str)
 
-            # --- cập nhật DB ---
+            # ==================================================
+            # THÊM VALIDATION ĐỂ SỬA LỖI
+            # ==================================================
+            if clock_in_dt and clock_out_dt and clock_out_dt < clock_in_dt:
+                messagebox.showwarning("Lỗi Logic", 
+                                      "Giờ ra (ClockOut) không thể nhỏ hơn Giờ vào (ClockIn) trong cùng một ngày.", 
+                                      parent=win)
+                return
+            # ==================================================            
+
+            # 2. Lưu (SỬA 5: Dùng execute_query)
             query = """
-                UPDATE ChamCong
-                SET MaCa=?, NgayLam=?, ClockIn=?, ClockOut=?, GhiChu=?
+                UPDATE ChamCong 
+                SET MaNV=?, MaCa=?, NgayLam=?, ClockIn=?, ClockOut=?, GhiChu=?
                 WHERE MaCham=?
             """
-            params = (maca, ngay_lam, start_dt, end_dt, ghichu_new, macham)
-
-            if execute_query(query , params):
-                messagebox.showinfo("✅ Thành công", f"Đã cập nhật chấm công #{macham}.", parent=win)
-                refresh()
+            params = (nv_text, maca, ngay_lam, clock_in_dt, clock_out_dt, ghi_chu, macham)
+            
+            if db.execute_query(query, params):
+                messagebox.showinfo("Thành công", "Đã cập nhật bản ghi chấm công.", parent=win)
                 win.destroy()
-
+                refresh()
+            
         except Exception as e:
-            db.conn.rollback()
             messagebox.showerror("Lỗi", f"Không thể cập nhật chấm công: {e}", parent=win)
 
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton", command=save).grid(row=8, column=0, columnspan=2, pady=15)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: save()).pack(ipadx=10, ipady=6)
+
 
 def delete_attendance(tree, refresh):
-    """Xóa bản ghi chấm công (sử dụng helper safe_delete)"""
+    """Xóa bản ghi chấm công"""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần xóa!")
         return
 
-    values = tree.item(selected[0])["values"]
-    macham = values[0]  # cột đầu tiên luôn là MaCham
+    # SỬA 6: Lấy iid (macham) trực tiếp
+    macham = selected[0] 
 
-    try:
-        safe_delete(
-            table_name="ChamCong",
-            key_column="MaCham",
-            key_value=macham,
-            cursor=db.cursor,
-            conn=db.conn,
-            refresh_func=refresh,
-            item_label="chấm công"
-        )
-    except Exception as e:
-        messagebox.showerror("Lỗi", f"Không thể xóa chấm công: {e}")
+    safe_delete(
+        table_name="ChamCong",
+        key_column="MaCham",
+        key_value=macham,
+        cursor=db.cursor,
+        conn=db.conn,
+        refresh_func=refresh,
+        item_label="bản ghi chấm công"
+    )

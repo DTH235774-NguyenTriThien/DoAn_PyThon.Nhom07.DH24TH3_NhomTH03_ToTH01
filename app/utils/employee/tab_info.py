@@ -7,7 +7,7 @@ from app import db
 
 # SỬA 1: Import helper mới
 from app.db import execute_query, fetch_query 
-from app.utils.utils import create_form_window, go_back
+from app.utils.utils import create_form_window, go_back,center_window
 from app.utils.time_helpers import normalize_date_input
 from app.utils.id_helpers import generate_next_manv
 from app.utils.business_helpers import safe_delete
@@ -19,6 +19,7 @@ def build_tab(parent, root=None, username=None, role=None):
     """Tab 1 - Thông tin nhân viên (chuẩn hoá từ module employee.py gốc)"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
+    center_window(root, 1200, 600, offset_y=-60)
 
     # ===== THANH CHỨC NĂNG =====
     top_frame = tk.Frame(parent, bg="#f9fafb")
@@ -92,24 +93,23 @@ def build_tab(parent, root=None, username=None, role=None):
             rows = db.fetch_query(query, params)
 
             # ===== MÃ GIẢ ĐỂ KIỂM TRA HIỆU SUẤT (Stress Test) =====
-            if not keyword: # Chỉ test khi không tìm kiếm
-                print("--- ĐANG CHẠY STRESS TEST 5000 DÒNG (ĐÃ SỬA LỖI IID) ---")
+            #if not keyword: # Chỉ test khi không tìm kiếm
+            #   print("--- ĐANG CHẠY STRESS TEST 5000 DÒNG (ĐÃ SỬA LỖI IID) ---")
 
                 # Tạo 5000 dòng test với MaNV duy nhất
-                test_rows = []
-                for i in range(5000):
-                    test_rows.append({
-                        "MaNV": f"NV_TEST_{i}", # <-- MaNV (iid) duy nhất
-                        "HoTen": f"Nhân viên Test {i}", 
-                        "GioiTinh": "Nam", 
-                        "NgaySinh": None, 
-                        "ChucVu": "Tester", 
-                        "LuongCoBan": 100000, 
-                        "TrangThai": "Testing"
-                    })
-
+                #test_rows = []
+                #for i in range(5000):
+                #   test_rows.append({
+                #        "MaNV": f"NV_TEST_{i}", # <-- MaNV (iid) duy nhất
+                #        "HoTen": f"Nhân viên Test {i}", 
+                #        "GioiTinh": "Nam", 
+                #        "NgaySinh": None, 
+                #        "ChucVu": "Tester", 
+                #        "LuongCoBan": 100000, 
+                #        "TrangThai": "Testing"
+                #    })
                 # Ghi đè 'rows' bằng dữ liệu test
-                rows = test_rows
+                #rows = test_rows
             # ================= HẾT MÃ GIẢ =======================
             
             # 2. Chuẩn bị dữ liệu (nhanh)
@@ -228,9 +228,10 @@ def add_employee(refresh):
             entry.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = entry
 
-    form.grid_columnconfigure(1, weight=1)
-    ttk.Button(form, text="💾 Lưu nhân viên", style="Add.TButton",
-               command=lambda: submit()).grid(row=len(labels), columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
 
     def submit():
         try:
@@ -358,9 +359,10 @@ def edit_employee(tree, refresh):
             ent.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = ent
 
-    form.grid_columnconfigure(1, weight=1)
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton",
-               command=lambda: save()).grid(row=len(labels), columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: save()).pack(ipadx=10, ipady=6)
 
     def save():
         try:

@@ -1,0 +1,52 @@
+📁 Doan_Python (root)
+
+├── Doan_Python/
+│   ├── .gitignore
+│   ├── config.ini
+│   ├── project_structure.txt
+│   ├── README.md
+│   ├── remember.ini
+│   ├── requirements.txt
+│   ├── app/
+│   │   ├── db.py
+│   │   ├── main.py
+│   │   ├── remember.ini
+│   │   ├── theme.py
+│   │   ├── __init__.py
+│   │   ├── assets/
+│   │   ├── modules/
+│   │   │   ├── customers.py
+│   │   │   ├── drinks.py
+│   │   │   ├── employees.py
+│   │   │   ├── invoices.py
+│   │   │   ├── reports.py
+│   │   │   ├── __init__.py
+│   │   ├── ui/
+│   │   │   ├── login_frame.py
+│   │   │   ├── mainmenu_frame.py
+│   │   │   ├── __init__.py
+│   │   ├── utils/
+│   │   │   ├── export_helper.py
+│   │   │   ├── utils.py
+│   │   │   ├── __init__.py
+│   │   │   ├── employee/
+│   │   │   │   ├── tab_attendance.py
+│   │   │   │   ├── tab_info.py
+│   │   │   │   ├── tab_salary.py
+│   │   │   │   ├── tab_shift.py
+│   ├── database/
+│   │   ├── AddEX.sql
+│   │   ├── create_db.sql
+│   │   ├── Test_QuanHe_CacKhoa.sql
+│   │   ├── ERD/
+│   │   │   ├── ERD.png
+│   ├── docs/
+│   │   ├── README_Project.md
+│   │   ├── Sprint0.md
+│   │   ├── Sprint1.md
+│   │   ├── Sprint2.md
+│   ├── exports/
+│   │   ├── Bảng_Lương_20251027_231718.xlsx
+│   ├── scripts/
+│   │   ├── create_admin.py
+│   │   ├── test_mssql.py

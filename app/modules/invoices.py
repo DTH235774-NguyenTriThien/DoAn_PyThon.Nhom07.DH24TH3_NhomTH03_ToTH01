@@ -5,8 +5,13 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
 from app.db import execute_query
-from app.utils.utils import clear_window, generate_next_mahd, recalc_invoice_total, safe_delete, create_form_window, go_back, center_window
 from app.theme import setup_styles
+# Các hàm UI chung
+from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# Các hàm nghiệp vụ
+from app.utils.business_helpers import recalc_invoice_total, safe_delete
+# Hàm sinh mã
+from app.utils.id_helpers import generate_next_mahd
 
 # ---------- SHOW MAIN INVOICE MODULE ----------
 def show_invoices_module(root, username=None, role=None):
@@ -281,7 +286,11 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
 
     ttk.Label(right, text="Chọn sản phẩm:").pack(anchor="w", pady=(6,2))
     # load product list
-    db.cursor.execute("SELECT MaSP, TenSP, DonGia FROM SANPHAM WHERE TrangThai = N'Có hàng'")
+    db.cursor.execute("""
+        SELECT MaSP, TenSP, DonGia, TrangThai
+        FROM SANPHAM 
+        WHERE TrangThai = N'Có hàng'
+    """)
     products = db.cursor.fetchall()
     prod_map = {f"{r.MaSP.strip()} - {r.TenSP}": (r.MaSP.strip(), float(r.DonGia)) for r in products}
     prod_list = list(prod_map.keys())
@@ -355,6 +364,8 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
             messagebox.showinfo("OK", f"Đã thêm {qty} x {masp}. Tổng: {int(total):,} đ", parent=win)
             load_items()
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             db.conn.rollback()
             messagebox.showerror("Lỗi", f"Không thể thêm mặt hàng: {e}", parent=win)
 
@@ -477,7 +488,7 @@ def delete_invoice(tree, refresh):
 
 def update_customer_points(mahd):
     """Cộng điểm tích lũy cho khách hàng sau khi thanh toán"""
-    db.cursor.execute("SELECT MaKH, TongTien FROM HoaDon WHERE MaHD=?", (mahd,))
+    db.cursor.execute("SELECT MaKH, TongTien , TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
     row = db.cursor.fetchone()
     if row and row.MaKH:
         makh, tongtien = row.MaKH, row.TongTien or 0

@@ -12,7 +12,6 @@ from openpyxl import Workbook
 from datetime import datetime
 
 
-
 def build_tab(parent, root=None, username=None, role=None):
     """Tab Bảng lương — quản lý lương nhân viên"""
     setup_styles()

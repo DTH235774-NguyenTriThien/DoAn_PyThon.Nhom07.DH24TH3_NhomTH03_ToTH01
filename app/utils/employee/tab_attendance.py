@@ -4,7 +4,13 @@ from tkcalendar import DateEntry
 from datetime import datetime, date
 from app import db
 from app.db import execute_query
-from app.utils.utils import format_for_display ,parse_date, parse_time, combine_date_time, normalize_date_input, go_back, generate_next_macc, safe_delete
+from app.utils.utils import go_back
+from app.utils.time_helpers import (
+    format_for_display, parse_date, parse_time, 
+    combine_date_time, normalize_date_input
+)
+from app.utils.id_helpers import generate_next_macc
+from app.utils.business_helpers import safe_delete
 from app.theme import setup_styles
 
 

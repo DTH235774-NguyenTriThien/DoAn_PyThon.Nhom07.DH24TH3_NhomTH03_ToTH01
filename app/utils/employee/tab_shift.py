@@ -2,8 +2,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from app import db
 from app.theme import setup_styles
-from app.utils.utils import safe_delete, go_back, parse_time, validate_shift_time, generate_next_maca
 from datetime import datetime, time
+from app.utils.utils import go_back
+from app.utils.business_helpers import safe_delete, validate_shift_time
+from app.utils.time_helpers import parse_time
+from app.utils.id_helpers import generate_next_maca
 
 def build_tab(parent, root=None, username=None, role=None):
     """Tab Ca làm việc — Quản lý danh sách ca và CRUD cơ bản"""

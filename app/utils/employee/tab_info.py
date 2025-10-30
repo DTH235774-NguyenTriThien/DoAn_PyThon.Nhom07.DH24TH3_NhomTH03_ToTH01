@@ -1,11 +1,15 @@
+#app/utils/employee/tab_info.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
 from app import db
 from app.db import execute_query
-from app.utils.utils import normalize_date_input, create_form_window, safe_delete, go_back, generate_next_manv
 from app.theme import setup_styles
+from app.utils.utils import create_form_window, go_back # Các hàm UI chung
+from app.utils.time_helpers import normalize_date_input # Hàm xử lý ngày
+from app.utils.id_helpers import generate_next_manv # Hàm sinh mã
+from app.utils.business_helpers import safe_delete # Hàm nghiệp vụ
 
 
 def build_tab(parent, root=None, username=None, role=None):

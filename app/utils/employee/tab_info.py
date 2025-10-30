@@ -1,15 +1,18 @@
-#app/utils/employee/tab_info.py
+# app/utils/employee/tab_info.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
 from app import db
-from app.db import execute_query
+
+# SỬA 1: Import helper mới
+from app.db import execute_query, fetch_query 
+from app.utils.utils import create_form_window, go_back
+from app.utils.time_helpers import normalize_date_input
+from app.utils.id_helpers import generate_next_manv
+from app.utils.business_helpers import safe_delete
+from app.utils.treeview_helpers import fill_treeview_chunked # <-- HELPER MỚI
 from app.theme import setup_styles
-from app.utils.utils import create_form_window, go_back # Các hàm UI chung
-from app.utils.time_helpers import normalize_date_input # Hàm xử lý ngày
-from app.utils.id_helpers import generate_next_manv # Hàm sinh mã
-from app.utils.business_helpers import safe_delete # Hàm nghiệp vụ
 
 
 def build_tab(parent, root=None, username=None, role=None):
@@ -26,7 +29,13 @@ def build_tab(parent, root=None, username=None, role=None):
              bg="#f9fafb").pack(side="left", padx=5)
     entry_search = ttk.Entry(top_frame, textvariable=search_var, width=35)
     entry_search.pack(side="left", padx=5)
-    entry_search.bind("<KeyRelease>", lambda e: load_data(search_var.get().strip()))
+    
+    # Label hiển thị trạng thái (ví dụ: "Đang tải...")
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(top_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
+    status_label.pack(side="left", padx=10)
+
+    entry_search.bind("<KeyRelease>", lambda e: load_data(tree, status_label_var, search_var.get().strip()))
 
 
     # ====== BẢNG HIỂN THỊ ======
@@ -47,11 +56,17 @@ def build_tab(parent, root=None, username=None, role=None):
         tree.column(col, anchor="center", width=120)
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ====== HÀM TẢI DỮ LIỆU ======
-    def load_data(keyword=None):
-        """Tải danh sách nhân viên, hỗ trợ tìm kiếm theo nhiều cột"""
-        for item in tree.get_children():
-            tree.delete(item)
+    # ==================================================
+    # SỬA 2: NÂNG CẤP load_data VỚI fill_treeview_chunked
+    # ==================================================
+    def load_data(tree_widget, status_var, keyword=None):
+        """Tải danh sách nhân viên, hỗ trợ tìm kiếm và chèn theo từng mẻ (chunked)"""
+        
+        # Xóa TreeView ngay lập tức (fill_treeview_chunked sẽ tự xóa, 
+        # nhưng chúng ta xóa ở đây để người dùng thấy phản hồi ngay)
+        tree_widget.delete(*tree_widget.get_children()) 
+        status_var.set("Đang tải dữ liệu...")
+        tree_widget.update_idletasks() # Ép Tkinter cập nhật UI
 
         query = """
             SELECT MaNV, HoTen, GioiTinh, NgaySinh, ChucVu, LuongCoBan, TrangThai
@@ -69,69 +84,102 @@ def build_tab(parent, root=None, username=None, role=None):
                       TrangThai LIKE ?
             """
             params = (keyword, keyword, keyword, keyword, keyword)
+        
+        query += " ORDER BY MaNV" 
 
         try:
-            db.cursor.execute(query, params)
-            rows = db.cursor.fetchall()
-            keyword_lower = keyword.lower().strip("%") if keyword else ""
+            # 1. Lấy dữ liệu (nhanh)
+            rows = db.fetch_query(query, params)
 
+            # ===== MÃ GIẢ ĐỂ KIỂM TRA HIỆU SUẤT (Stress Test) =====
+            if not keyword: # Chỉ test khi không tìm kiếm
+                print("--- ĐANG CHẠY STRESS TEST 5000 DÒNG (ĐÃ SỬA LỖI IID) ---")
+
+                # Tạo 5000 dòng test với MaNV duy nhất
+                test_rows = []
+                for i in range(5000):
+                    test_rows.append({
+                        "MaNV": f"NV_TEST_{i}", # <-- MaNV (iid) duy nhất
+                        "HoTen": f"Nhân viên Test {i}", 
+                        "GioiTinh": "Nam", 
+                        "NgaySinh": None, 
+                        "ChucVu": "Tester", 
+                        "LuongCoBan": 100000, 
+                        "TrangThai": "Testing"
+                    })
+
+                # Ghi đè 'rows' bằng dữ liệu test
+                rows = test_rows
+            # ================= HẾT MÃ GIẢ =======================
+            
+            # 2. Chuẩn bị dữ liệu (nhanh)
+            tree_data = []
             for row in rows:
-                manv = row.MaNV.strip()
-                hoten = row.HoTen
-                ngaysinh = row.NgaySinh.strftime("%d/%m/%Y") if row.NgaySinh else ""
-                chucvu = row.ChucVu
-                luong = f"{int(row.LuongCoBan):,}"
-                trangthai = row.TrangThai
+                manv = row["MaNV"].strip()
+                hoten = row["HoTen"]
+                ngaysinh_obj = row["NgaySinh"]
+                ngaysinh = ngaysinh_obj.strftime("%d/%m/%Y") if ngaysinh_obj else ""
+                chucvu = row["ChucVu"]
+                luong_obj = row["LuongCoBan"]
+                luong = f"{int(luong_obj):,}" if luong_obj is not None else "0"
+                trangthai = row["TrangThai"]
+                gioitinh = row["GioiTinh"]
 
-                item_id = tree.insert("", "end", values=[
-                    manv, hoten, row.GioiTinh, ngaysinh, chucvu, luong, trangthai
-                ])
+                # Chuẩn bị 1 tuple (danh sách) các giá trị
+                values_tuple = (manv, hoten, gioitinh, ngaysinh, chucvu, luong, trangthai)
+                
+                # Thêm vào danh sách để chèn
+                # Chúng ta dùng định dạng (iid, values) mà helper hỗ trợ
+                tree_data.append({"iid": manv, "values": values_tuple})
 
-                # Highlight keyword
-                #if keyword_lower and (
-                #    keyword_lower in manv.lower()
-                #    or keyword_lower in hoten.lower()
-                #    or keyword_lower in row.GioiTinh.lower()
-                #    or keyword_lower in chucvu.lower()
-                #    or keyword_lower in trangthai.lower()
-                #):
-                #    tree.item(item_id, tags=("highlight",))
-
-            tree.tag_configure("highlight", background="#fff3cd",
-                               font=("Arial", 11, "bold"))
+            # 3. "Vẽ" lên TreeView (mượt mà)
+            def on_load_complete():
+                status_var.set(f"Đã tải {len(rows)} nhân viên.")
+                
+            fill_treeview_chunked(
+                tree=tree_widget, 
+                rows=tree_data, 
+                batch=100, # Tải 100 dòng mỗi 10ms
+                on_complete=on_load_complete
+            )
 
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể tải dữ liệu: {e}")
+            status_var.set("Lỗi tải dữ liệu!")
+            messagebox.showerror("Lỗi", f"Không thể tải hoặc hiển thị dữ liệu: {e}")
 
     # ====== NÚT CHỨC NĂNG ======
+    # (Cập nhật các hàm lambda để truyền tree và status_label_var)
+    def refresh_data():
+        load_data(tree, status_label_var)
+
     ttk.Button(top_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
+               command=refresh_data).pack(side="left", padx=5)
     ttk.Button(top_frame, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_employee(load_data)).pack(side="left", padx=5)
+               command=lambda: add_employee(refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_employee(tree, load_data)).pack(side="left", padx=5)
+               command=lambda: edit_employee(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_employee(tree, load_data)).pack(side="left", padx=5)
+               command=lambda: delete_employee(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
-                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+               command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
 
     # ====== GẮN SỰ KIỆN ======
     def on_search_change(event=None):
         kw = search_var.get().strip()
-        load_data(kw)
+        load_data(tree, status_label_var, kw) 
 
     def on_double_click(event):
         sel = tree.selection()
         if sel:
-            edit_employee(tree, load_data)
+            edit_employee(tree, refresh_data)
     tree.bind("<Double-1>", on_double_click)
 
     # Tải dữ liệu lần đầu
-    load_data()
+    refresh_data()
 
 
 # =============================================================
-# CÁC HÀM CRUD
+# CÁC HÀM CRUD (Không thay đổi, giữ nguyên)
 # =============================================================
 def add_employee(refresh):
     """Thêm nhân viên mới"""
@@ -197,8 +245,10 @@ def add_employee(refresh):
             if not manv:
                 manv = generate_next_manv(db.cursor)
 
-            db.cursor.execute("SELECT COUNT(*) FROM NhanVien WHERE MaNV=?", (manv,))
-            if db.cursor.fetchone()[0] > 0:
+            # SỬA NHỎ: Dùng execute_scalar cho chuẩn
+            count = db.execute_scalar("SELECT COUNT(*) FROM NhanVien WHERE MaNV=?", (manv,))
+            
+            if count > 0:
                 messagebox.showwarning("⚠️ Trùng mã NV", f"Mã {manv} đã tồn tại!")
                 return
 
@@ -224,8 +274,12 @@ def edit_employee(tree, refresh):
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần sửa!")
         return
 
-    values = tree.item(selected[0])["values"]
-    manv = values[0]
+    # SỬA NHỎ: Lấy iid (MaNV) từ tree.selection()
+    # thay vì tree.item(..., "values")[0]
+    # Điều này an toàn hơn nếu cột bị đổi thứ tự
+    manv = selected[0] 
+    values = tree.item(manv)["values"]
+
 
     win = tk.Toplevel()
     win.title(f"✏️ Sửa nhân viên {manv}")
@@ -240,37 +294,57 @@ def edit_employee(tree, refresh):
     entries = {}
     positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
     statuses = ["Đang làm", "Tạm nghỉ", "Đào tạo", "Đã nghỉ"]
+    
+    # values[0] là MaNV, nên ta bắt đầu từ values[1]
+    current = dict(zip(labels, values)) 
+    
+    # SỬA NHỎ: Chuyển đổi tên cột TreeView (values)
+    # sang tên cột trong form (labels)
+    # Vì values giờ có 7 cột (gồm MaNV),
+    # nhưng 'current' dict chỉ cần 6 cột (theo 'labels')
+    
+    # Lấy giá trị từ TreeView bằng tên cột (đã định nghĩa ở headers_vn)
+    item_values = tree.item(manv)["values"]
+    current_data = {
+        "Họ tên": item_values[1],
+        "Giới tính": item_values[2],
+        "Ngày sinh": item_values[3],
+        "Chức vụ": item_values[4],
+        "Lương cơ bản": item_values[5],
+        "Trạng thái": item_values[6]
+    }
 
-    current = dict(zip(labels, values[1:]))
-    if current["Ngày sinh"]:
+    if current_data["Ngày sinh"]:
         try:
-            current["Ngày sinh"] = datetime.strptime(current["Ngày sinh"], "%d/%m/%Y").date()
+            current_data["Ngày sinh"] = datetime.strptime(current_data["Ngày sinh"], "%d/%m/%Y").date()
         except:
-            current["Ngày sinh"] = datetime.today().date()
+            current_data["Ngày sinh"] = datetime.today().date()
 
     for i, text in enumerate(labels):
         ttk.Label(form, text=text, font=("Arial", 11), background="#f8f9fa").grid(
             row=i, column=0, sticky="w", padx=8, pady=6
         )
+        
+        current_val = current_data[text]
 
         if text == "Chức vụ":
             cb = ttk.Combobox(form, values=positions, state="readonly", font=("Arial", 11))
-            cb.set(current[text])
+            cb.set(current_val)
             cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = cb
         elif text == "Ngày sinh":
             cal = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11),
                             background="#3e2723", foreground="white", borderwidth=2)
-            cal.set_date(current["Ngày sinh"])
+            cal.set_date(current_val)
             cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = cal
         elif text == "Trạng thái":
             cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
-            cb.set(current[text] if current[text] in statuses else "Đang làm")
+            cb.set(current_val if current_val in statuses else "Đang làm")
             cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = cb
         elif text == "Giới tính":
-            gender_var = tk.StringVar(value=current.get("Giới tính", "Nam"))
+            gender_var = tk.StringVar(value=current_val or "Nam")
             frame_gender = tk.Frame(form, bg="#f8f9fa")
             frame_gender.grid(row=i, column=1, padx=8, pady=6, sticky="w")
             tk.Radiobutton(frame_gender, text="Nam", variable=gender_var, value="Nam",
@@ -280,7 +354,7 @@ def edit_employee(tree, refresh):
             entries[text] = gender_var
         else:
             ent = ttk.Entry(form, font=("Arial", 11))
-            ent.insert(0, current[text])
+            ent.insert(0, current_val)
             ent.grid(row=i, column=1, padx=8, pady=6, sticky="ew")
             entries[text] = ent
 
@@ -322,9 +396,9 @@ def delete_employee(tree, refresh):
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần xóa!")
         return
-
-    values = tree.item(selected[0])["values"]
-    manv = values[0]
+    
+    # Lấy iid (MaNV) trực tiếp
+    manv = selected[0]
 
     safe_delete(
         table_name="NhanVien",

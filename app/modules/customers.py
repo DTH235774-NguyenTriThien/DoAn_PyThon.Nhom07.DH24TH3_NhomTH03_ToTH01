@@ -3,8 +3,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from app import db
 from app.db import execute_query
-from app.utils.utils import clear_window, generate_next_makh, safe_delete, create_form_window, go_back, center_window
 from app.theme import setup_styles
+# Các hàm UI chung
+from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# Hàm nghiệp vụ
+from app.utils.business_helpers import safe_delete
+# Hàm sinh mã
+from app.utils.id_helpers import generate_next_makh
 
 def show_customers_module(root, username=None, role=None):
 

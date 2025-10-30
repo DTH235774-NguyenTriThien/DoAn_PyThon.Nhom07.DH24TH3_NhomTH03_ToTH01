@@ -123,7 +123,7 @@ def show_login(root):
                     messagebox.showinfo("Đăng nhập", f"Xin chào {hoten or username}!\nVai trò: {role}")
                     
                     from app.ui.mainmenu_frame import show_main_menu
-                    show_main_menu(root, username, role)
+                    show_main_menu(root, hoten or username, role)
                     
                 else:
                     # ===== MẬT KHẨU SAI =====

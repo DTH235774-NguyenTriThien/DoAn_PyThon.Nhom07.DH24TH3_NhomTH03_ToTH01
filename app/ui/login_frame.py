@@ -1,8 +1,12 @@
 # app/ui/login_frame.py
 import tkinter as tk
 from tkinter import messagebox
-import pyodbc, configparser, os
+import configparser
+import os
+
+# Thay đổi: Import các hàm chuẩn hóa từ db.py và utils.py
 from app.utils.utils import clear_window
+from app.db import fetch_query  # Import hàm fetch_query đã chuẩn hóa
 
 def show_login(root):
     """Hiển thị giao diện đăng nhập (icon mật khẩu nằm ngoài textbox, không che)"""
@@ -34,7 +38,7 @@ def show_login(root):
     # đảm bảo cột 1 (entry) mở rộng
     form.grid_columnconfigure(1, weight=1)
 
-  # --- Tên đăng nhập ---
+    # --- Tên đăng nhập ---
     tk.Label(form, text="Tên đăng nhập", font=("Segoe UI", 11), bg="#fff8e1", fg="#4e342e")\
         .grid(row=0, column=0, sticky="w", pady=8)
     entry_user = tk.Entry(form, width=28, font=("Segoe UI", 11), bd=1, relief="solid")
@@ -50,7 +54,6 @@ def show_login(root):
     entry_pass = tk.Entry(pw_frame, width=24, show="*", font=("Segoe UI", 11), bd=1, relief="solid")
     entry_pass.pack(side="left", fill="x", expand=True)
 
-
     # nút icon nằm ngoài textbox (cột 2)
     def toggle_pw():
         if entry_pass.cget("show") == "":
@@ -62,7 +65,7 @@ def show_login(root):
 
     btn_toggle = tk.Button(form, text="👁", bg="#fff8e1", bd=0, relief="flat",
                            cursor="hand2", font=("Segoe UI", 10), command=toggle_pw)
-    btn_toggle.grid(row=1, column=2, padx=(6,0), pady=(6,6))
+    btn_toggle.grid(row=1, column=2, padx=(6, 0), pady=(6, 6))
 
     # Ghi nhớ đăng nhập (dưới form)
     remembered_user = ""
@@ -82,49 +85,66 @@ def show_login(root):
     # Nút chức năng: hai nút ngang hàng, đều nhau
     btn_frame = tk.Frame(frame, bg="#fff8e1")
     btn_frame.pack(pady=12)
+
+    # ==============================================================
+    # REFACTOR: Hàm check_login được viết lại
+    # ==============================================================
     def check_login():
         user = entry_user.get().strip()
         pw = entry_pass.get().strip()
+        
         if not user or not pw:
             messagebox.showwarning("Thiếu thông tin", "Vui lòng nhập tên đăng nhập và mật khẩu!")
             return
-        try:
-            cfg = configparser.ConfigParser()
-            cfg.read('config.ini', encoding='utf-8')
-            server = cfg['database']['server']
-            database = cfg['database']['database']
-            driver = cfg['database']['driver']
-            conn = pyodbc.connect(f"DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;")
-            cursor = conn.cursor()
-            query = """
-                SELECT tk.TenDangNhap, nv.HoTen, tk.Role
-                FROM TaiKhoan tk
-                LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
-                WHERE tk.TenDangNhap = ?
-                AND tk.MatKhauHash = CONVERT(NVARCHAR(256), HASHBYTES('SHA2_256', ?), 2)
-            """
-            cursor.execute(query, (user, pw))
-            result = cursor.fetchone()
-            if result:
-                username, hoten, role = result
-                # Lưu nhớ
-                if remember_var.get():
-                    rc = configparser.ConfigParser()
-                    rc["remember"] = {"username": user}
-                    with open("remember.ini", "w", encoding="utf-8") as f:
-                        rc.write(f)
-                else:
-                    if os.path.exists("remember.ini"):
-                        os.remove("remember.ini")
-                messagebox.showinfo("Đăng nhập", f"Xin chào {hoten or username}!\nVai trò: {role}")
-                from app.ui.mainmenu_frame import show_main_menu
-                show_main_menu(root, username, role)
+        
+        # Câu query không đổi
+        query = """
+            SELECT tk.TenDangNhap, nv.HoTen, tk.Role
+            FROM TaiKhoan tk
+            LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
+            WHERE tk.TenDangNhap = ?
+            AND tk.MatKhauHash = CONVERT(NVARCHAR(256), HASHBYTES('SHA2_256', ?), 2)
+        """
+        
+        # Thay vì tự kết nối, chúng ta dùng hàm fetch_query đã chuẩn hóa
+        # fetch_query trả về một list[dict]
+        results = fetch_query(query, (user, pw))
+
+        if results:
+            # Lấy kết quả đầu tiên (và duy nhất)
+            user_data = results[0] 
+            
+            # Truy cập bằng tên cột (dict key)
+            username = user_data["TenDangNhap"]
+            hoten = user_data["HoTen"]
+            role = user_data["Role"]
+
+            # Lưu nhớ (logic này giữ nguyên)
+            if remember_var.get():
+                rc = configparser.ConfigParser()
+                rc["remember"] = {"username": user}
+                with open("remember.ini", "w", encoding="utf-8") as f:
+                    rc.write(f)
             else:
-                # hiệu ứng: chọn textbox password và highlight nhỏ (tuỳ ý)
-                entry_pass.focus_set()
-                messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể kết nối SQL Server:\n{e}")
+                if os.path.exists("remember.ini"):
+                    os.remove("remember.ini")
+            
+            messagebox.showinfo("Đăng nhập", f"Xin chào {hoten or username}!\nVai trò: {role}")
+            
+            # Chuyển sang main menu (giữ nguyên)
+            from app.ui.mainmenu_frame import show_main_menu
+            show_main_menu(root, username, role)
+        else:
+            # Sai thông tin
+            entry_pass.focus_set()
+            messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")
+        
+        # Lưu ý: Không cần khối try...except Exception as e:
+        # vì hàm fetch_query() trong db.py đã tự xử lý việc này!
+
+    # ==============================================================
+    # KẾT THÚC REFACTOR
+    # ==============================================================
 
     # hai nút bằng nhau
     btn_login = tk.Button(btn_frame, text="Đăng nhập", bg="#6d4c41", fg="white",

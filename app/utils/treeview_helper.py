@@ -1,4 +1,4 @@
-# treeview_helpers.py
+# app/utils/treeview_helpers.py
 import math
 import threading
 import tkinter as tk

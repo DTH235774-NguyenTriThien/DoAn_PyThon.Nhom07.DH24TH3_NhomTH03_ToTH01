@@ -4,7 +4,9 @@ from tkinter import ttk, messagebox, simpledialog
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
-from app.db import execute_query
+
+# SỬA 1: Cập nhật Imports
+from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
 # Các hàm UI chung
 from app.utils.utils import clear_window, create_form_window, go_back, center_window
@@ -12,6 +14,8 @@ from app.utils.utils import clear_window, create_form_window, go_back, center_wi
 from app.utils.business_helpers import recalc_invoice_total, safe_delete
 # Hàm sinh mã
 from app.utils.id_helpers import generate_next_mahd
+# Helper TreeView
+from app.utils.treeview_helpers import fill_treeview_chunked
 
 # ---------- SHOW MAIN INVOICE MODULE ----------
 def show_invoices_module(root, username=None, role=None):
@@ -38,28 +42,33 @@ def show_invoices_module(root, username=None, role=None):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
+    # SỬA 2: Thêm Label trạng thái
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(top, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f5e6ca", foreground="blue")
+    status_label.pack(side="left", padx=10)
+
     # Treeview
     cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai", "GhiChu")
     tree = ttk.Treeview(root, columns=cols, show="headings", height=16)
     headers = {
-    "MaHD": "Mã HD",
-    "NgayLap": "Ngày lập",
-    "MaNV": "Mã NV",
-    "TenKH": "Khách hàng",
-    "TongTien": "Tổng tiền (đ)",
-    "TrangThai": "Trạng thái",
-    "GhiChu": "Ghi Chú"
+        "MaHD": "Mã HD",
+        "NgayLap": "Ngày lập",
+        "MaNV": "Mã NV",
+        "TenKH": "Khách hàng",
+        "TongTien": "Tổng tiền (đ)",
+        "TrangThai": "Trạng thái",
+        "GhiChu": "Ghi Chú"
     }
     for c in cols:
         tree.heading(c, text=headers[c])
         tree.column(c, anchor="center", width=130 if c!="TongTien" else 160)
     tree.pack(fill="both", expand=True, padx=12, pady=(6,12))
 
-    # load_data
-    def load_data(keyword=None):
+    # SỬA 3: Nâng cấp load_data (dùng fetch_query và chunked)
+    def load_data(tree_widget, status_var, keyword=None):
+        status_var.set("Đang tải...")
+        tree_widget.update_idletasks()
         try:
-            for it in tree.get_children():
-                tree.delete(it)
             sql = """
             SELECT h.MaHD, h.NgayLap, h.MaNV, k.TenKH, h.TongTien, h.TrangThai, h.GhiChu
             FROM HoaDon h
@@ -68,90 +77,98 @@ def show_invoices_module(root, username=None, role=None):
             params = ()
             if keyword:
                 kw = f"%{keyword}%"
-                sql += " WHERE MaHD LIKE ? OR MaNV LIKE ? OR TrangThai LIKE ?"
-                params = (kw, kw, kw)
-                db.cursor.execute(sql, params)
-            else:
-                db.cursor.execute(sql)
-            rows = db.cursor.fetchall()
+                sql += " WHERE h.MaHD LIKE ? OR h.MaNV LIKE ? OR h.TrangThai LIKE ? OR k.TenKH LIKE ?"
+                params = (kw, kw, kw, kw)
+            sql += " ORDER BY h.NgayLap DESC"
+            
+            # Dùng fetch_query
+            rows = db.fetch_query(sql, params)
+            
+            tree_data = []
             for r in rows:
-                ngay = r.NgayLap.strftime("%d/%m/%Y %H:%M") if r.NgayLap else ""
-                tong = f"{int(r.TongTien):,}" if r.TongTien is not None else "0"
-                tree.insert("", "end", values=(
-                    r.MaHD.strip(),
+                ngay = r["NgayLap"].strftime("%d/%m/%Y %H:%M") if r["NgayLap"] else ""
+                tong = f"{int(r['TongTien']):,}" if r['TongTien'] is not None else "0"
+                values_tuple = (
+                    r["MaHD"].strip(),
                     ngay,
-                    r.MaNV.strip(),
-                    r.TenKH if r.TenKH else "",
+                    r["MaNV"].strip(),
+                    r["TenKH"] if r["TenKH"] else "",
                     tong,
-                    r.TrangThai if r.TrangThai else "",
-                    r.GhiChu if r.GhiChu else ""
-                ))
+                    r["TrangThai"] if r["TrangThai"] else "",
+                    r["GhiChu"] if r["GhiChu"] else ""
+                )
+                tree_data.append({"iid": r["MaHD"], "values": values_tuple})
+            
+            # Dùng fill_treeview_chunked
+            fill_treeview_chunked(
+                tree_widget, 
+                tree_data, 
+                on_complete=lambda: status_var.set(f"Đã tải {len(rows)} hóa đơn.")
+            )
+
         except Exception as e:
+            status_var.set("Lỗi tải!")
             messagebox.showerror("Lỗi", f"Không thể tải danh sách hóa đơn: {e}")
 
     # Buttons on top frame
+    
+    # Cập nhật hàm refresh
+    def refresh():
+        load_data(tree, status_label_var, search_var.get().strip())
 
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
+               command=refresh).pack(side="left", padx=5)
 
     ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
-                command=lambda: add_invoice(root, username, refresh)).pack(side="left", padx=6)
+               command=lambda: add_invoice(root, username, refresh)).pack(side="left", padx=6)
     
     ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
-                command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6
-                                                                               )
+               command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6)
     
     ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
-                command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
+               command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
 
     ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
-                command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+               command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
 
-
-    load_data()
+    # Tải lần đầu
+    refresh()
 
     # realtime search debounce
     search_after = {"id": None}
     def on_search_change(event=None):
         if search_after["id"]:
             root.after_cancel(search_after["id"])
-        search_after["id"] = root.after(250, lambda: load_data(search_var.get().strip()))
+        search_after["id"] = root.after(250, refresh) # Gọi refresh chuẩn
     entry_search.bind("<KeyRelease>", on_search_change)
 
     # double-click open detail
     def on_double_click(event):
         sel = tree.selection()
         if sel:
-            open_invoice_detail(tree, load_data, role)
+            open_invoice_detail(tree, refresh, role)
     tree.bind("<Double-1>", on_double_click)
 
-    # refresh wrapper
-    def refresh():
-        load_data()
 
 # ---------- CREATE A NEW INVOICE ----------
 
 def add_invoice(root, username, refresh):
     """Thêm hóa đơn mới (chuẩn hóa giao diện form theo Employee/Drink)"""
-
-    # --- Tạo cửa sổ form chuẩn ---
     win, form = create_form_window("➕ Tạo hóa đơn mới", size="500x430")
     entries = {}
-
-    # --- Danh sách label ---
     labels = ["Mã hóa đơn", "Mã NV (người lập)", "Khách hàng", "Ngày lập", "Ghi chú", "Trạng thái"]
 
-    # --- Tải danh sách khách hàng ---
+    # SỬA 4: Tải danh sách khách hàng dùng fetch_query
     try:
-        db.cursor.execute("SELECT MaKH, TenKH FROM KhachHang ORDER BY TenKH")
-        kh_rows = db.cursor.fetchall()
-        kh_map = {f"{r.MaKH.strip()} - {r.TenKH}": r.MaKH.strip() for r in kh_rows}
-        kh_list = list(kh_map.keys())
+        kh_rows = db.fetch_query("SELECT MaKH, TenKH FROM KhachHang ORDER BY TenKH")
+        kh_map = {f"{r['MaKH'].strip()} - {r['TenKH']}": r['MaKH'].strip() for r in kh_rows}
+        kh_list = [""] # Thêm lựa chọn rỗng
+        kh_list.extend(list(kh_map.keys()))
     except Exception as e:
         kh_rows, kh_map, kh_list = [], {}, []
         messagebox.showwarning("Lỗi", f"Không thể tải danh sách khách hàng: {e}", parent=win)
 
-    # --- Sinh mã hóa đơn mới ---
+    # Sinh mã hóa đơn mới
     mahd_auto = generate_next_mahd(db.cursor)
 
     for i, text in enumerate(labels):
@@ -162,24 +179,21 @@ def add_invoice(root, username, refresh):
             cb = ttk.Combobox(form, values=kh_list, state="readonly", font=("Arial", 11))
             cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = cb
-
+        # ... (các
         elif text == "Ngày lập":
             ent = ttk.Entry(form, font=("Arial", 11))
             ent.insert(0, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             ent.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = ent
-
         elif text == "Trạng thái":
             cb = ttk.Combobox(form, values=["Chưa thanh toán", "Đã thanh toán", "Hủy"], state="readonly", font=("Arial", 11))
             cb.set("Chưa thanh toán")
             cb.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = cb
-
         elif text == "Ghi chú":
             txt = tk.Text(form, height=3, font=("Arial", 11))
             txt.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = txt
-
         else:
             ent = ttk.Entry(form, font=("Arial", 11))
             if text == "Mã hóa đơn":
@@ -192,13 +206,11 @@ def add_invoice(root, username, refresh):
 
     form.grid_columnconfigure(1, weight=1)
 
-    # --- Khung nút ---
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu & Thêm mặt hàng", style="Add.TButton",
                command=lambda: submit()).pack(ipadx=10, ipady=6)
 
-    # --- Hàm submit ---
     def submit():
         try:
             mahd = entries["Mã hóa đơn"].get().strip()
@@ -209,24 +221,21 @@ def add_invoice(root, username, refresh):
             kh_val = entries["Khách hàng"].get().strip()
             makh = kh_map.get(kh_val) if kh_val else None
 
-            # --- Kiểm tra dữ liệu ---
             if not manv:
                 messagebox.showwarning("Thiếu thông tin", "⚠️ Mã nhân viên không được trống.", parent=win)
                 return
-
             try:
                 ngaylap = datetime.strptime(ngaylap_raw, "%Y-%m-%d %H:%M:%S")
             except ValueError:
                 messagebox.showwarning("Lỗi ngày", "⚠️ Ngày lập không hợp lệ. Định dạng: YYYY-MM-DD HH:MM:SS", parent=win)
                 return
 
-            # --- Kiểm tra trùng mã hóa đơn ---
-            db.cursor.execute("SELECT COUNT(*) FROM HoaDon WHERE MaHD=?", (mahd,))
-            if db.cursor.fetchone()[0] > 0:
+            # SỬA 5: Dùng execute_scalar để kiểm tra trùng
+            if db.execute_scalar("SELECT COUNT(*) FROM HoaDon WHERE MaHD=?", (mahd,)) > 0:
                 messagebox.showwarning("Trùng mã", f"Hóa đơn {mahd} đã tồn tại.", parent=win)
                 return
 
-            # --- Lưu vào DB ---
+            # Dùng execute_query (đã chuẩn)
             query = """
                 INSERT INTO HoaDon (MaHD, NgayLap, MaNV, MaKH, TongTien, TrangThai, GhiChu)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -237,12 +246,11 @@ def add_invoice(root, username, refresh):
                 messagebox.showinfo("✅ Thành công", f"Đã tạo hóa đơn {mahd}.", parent=win)
                 win.destroy()
                 refresh()
-
-            # --- Mở cửa sổ chi tiết hóa đơn ---
-            invoice_detail_window(root, mahd, refresh)
+                # Mở cửa sổ chi tiết hóa đơn
+                invoice_detail_window(root, mahd, refresh)
 
         except Exception as e:
-            db.conn.rollback()
+            # Không cần rollback, execute_query đã xử lý
             messagebox.showerror("Lỗi", f"Không thể thêm hóa đơn: {e}", parent=win)
 
 # ---------- OPEN INVOICE DETAIL WINDOW ----------
@@ -251,26 +259,26 @@ def open_invoice_detail(tree, parent_refresh, role=None):
     if not sel:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn hóa đơn để xem chi tiết.")
         return
-    mahd = tree.item(sel[0])['values'][0]
+    # SỬA 6: Lấy MaHD từ iid
+    mahd = sel[0] 
     invoice_detail_window(tree.master, mahd, parent_refresh)
 
 
 def invoice_detail_window(root, mahd, parent_refresh=None):
-    """
-    Quản lý chi tiết: thêm/sửa/xóa mặt hàng trong hóa đơn.
-    Khi thay đổi, gọi recalc_invoice_total để cập nhật tổng.
-    """
     win = tk.Toplevel(root)
     win.title(f"Chi tiết Hóa đơn {mahd}")
     win.geometry("760x520")
     win.configure(bg="#f5f5f5")
-
-    #Fullscreen cho CTHD
-    win.state('zoomed')  # phóng to toàn màn hình
+    win.state('zoomed') 
 
     # Left: Treeview chi tiết
     left = tk.Frame(win, bg="#f5f5f5")
     left.pack(side="left", fill="both", expand=True, padx=8, pady=8)
+
+    # SỬA 7: Thêm status_label cho TreeView con
+    status_label_var_detail = tk.StringVar(value="")
+    status_label_detail = ttk.Label(left, textvariable=status_label_var_detail, font=("Arial", 10, "italic"), background="#f5f5f5", foreground="blue")
+    status_label_detail.pack(anchor="w")
 
     cols = ("MaSP", "TenSP", "SoLuong", "DonGia", "ThanhTien")
     tree = ttk.Treeview(left, columns=cols, show="headings", height=20)
@@ -285,27 +293,29 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
     right.pack(side="right", fill="y", padx=8, pady=8)
 
     ttk.Label(right, text="Chọn sản phẩm:").pack(anchor="w", pady=(6,2))
-    # load product list
-    db.cursor.execute("""
-        SELECT MaSP, TenSP, DonGia, TrangThai
-        FROM SANPHAM 
-        WHERE TrangThai = N'Có hàng'
-    """)
-    products = db.cursor.fetchall()
-    prod_map = {f"{r.MaSP.strip()} - {r.TenSP}": (r.MaSP.strip(), float(r.DonGia)) for r in products}
-    prod_list = list(prod_map.keys())
+    
+    # SỬA 8: Tải sản phẩm dùng fetch_query
+    try:
+        query_sp = "SELECT MaSP, TenSP, DonGia, TrangThai FROM SANPHAM WHERE TrangThai = N'Có hàng'"
+        products = db.fetch_query(query_sp)
+        prod_map = {f"{r['MaSP'].strip()} - {r['TenSP']}": (r['MaSP'].strip(), float(r['DonGia'])) for r in products}
+        prod_list = list(prod_map.keys())
+    except Exception as e:
+        messagebox.showerror("Lỗi", f"Không thể tải danh sách sản phẩm: {e}", parent=win)
+        prod_map = {}
+        prod_list = []
+        
     prod_var = tk.StringVar()
     prod_cb = ttk.Combobox(right, values=prod_list, textvariable=prod_var, state="readonly", width=35)
     prod_cb.pack(pady=6)
 
+    # ... (Phần logic combobox, entry, label giữ nguyên)
     ttk.Label(right, text="Số lượng:").pack(anchor="w", pady=(6,2))
     qty_var = tk.StringVar(value="1")
     qty_entry = ttk.Entry(right, textvariable=qty_var)
     qty_entry.pack(pady=6)
-
     price_lbl = ttk.Label(right, text="Đơn giá: -")
     price_lbl.pack(anchor="w", pady=(6,2))
-
     total_lbl = ttk.Label(right, text="Thành tiền: 0")
     total_lbl.pack(anchor="w", pady=(6,6))
 
@@ -314,7 +324,6 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
         if key in prod_map:
             _, price = prod_map[key]
             price_lbl.config(text=f"Đơn giá: {int(price):,} đ")
-            # cập nhật thành tiền
             try:
                 q = int(qty_var.get())
             except:
@@ -333,7 +342,7 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
             total_lbl.config(text=f"Thành tiền: {int(price * q):,} đ")
     qty_var.trace_add("write", lambda *a: calc_total_preview())
 
-    # Buttons
+    # SỬA 9: Nâng cấp add_item (dùng execute_scalar và execute_query)
     def add_item():
         key = prod_var.get()
         if not key:
@@ -347,103 +356,126 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
         except Exception as e:
             messagebox.showwarning("Sai dữ liệu", f"Số lượng không hợp lệ: {e}", parent=win)
             return
+        
         try:
-            db.cursor.execute("SELECT SoLuong FROM ChiTietHoaDon WHERE MaHD=? AND MaSP=?", (mahd, masp))
-            r = db.cursor.fetchone()
-            if r:
-                new_qty = int(r.SoLuong) + qty
-                db.cursor.execute("UPDATE ChiTietHoaDon SET SoLuong=?, DonGia=? WHERE MaHD=? AND MaSP=?",
-                                (new_qty, price, mahd, masp))
+            # Kiểm tra xem SP đã tồn tại trong CTHD chưa
+            current_qty = db.execute_scalar(
+                "SELECT SoLuong FROM ChiTietHoaDon WHERE MaHD=? AND MaSP=?", 
+                (mahd, masp)
+            )
+            
+            if current_qty is not None:
+                # Đã tồn tại -> UPDATE
+                new_qty = int(current_qty) + qty
+                query = "UPDATE ChiTietHoaDon SET SoLuong=?, DonGia=? WHERE MaHD=? AND MaSP=?"
+                params = (new_qty, price, mahd, masp)
             else:
-                db.cursor.execute("INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia) VALUES (?, ?, ?, ?)",
-                                (mahd, masp, qty, price))
-            db.conn.commit()
-            # Cập nhật điểm tích lũy cho khách hàng
-            total = recalc_invoice_total(db.cursor, db.conn, mahd)
-            update_customer_points(mahd)
-            messagebox.showinfo("OK", f"Đã thêm {qty} x {masp}. Tổng: {int(total):,} đ", parent=win)
-            load_items()
+                # Chưa tồn tại -> INSERT
+                query = "INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia) VALUES (?, ?, ?, ?)"
+                params = (mahd, masp, qty, price)
+
+            if db.execute_query(query, params):
+                # Cập nhật tổng tiền hóa đơn (và điểm KH nếu cần)
+                total = recalc_invoice_total(db.cursor, db.conn, mahd)
+                update_customer_points(mahd)
+                
+                load_items() # Tải lại CTHD
+                parent_refresh() # Tải lại DS Hóa đơn chính
+                
+                # Cập nhật tiêu đề cửa sổ ngay lập tức
+                win.title(f"Chi tiết Hóa đơn {mahd} - Tổng: {int(total):,} đ")
+            
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            db.conn.rollback()
             messagebox.showerror("Lỗi", f"Không thể thêm mặt hàng: {e}", parent=win)
 
-
+    # SỬA 10: Nâng cấp load_items (dùng fetch_query và chunked)
     def load_items():
-        for it in tree.get_children():
-            tree.delete(it)
-        db.cursor.execute("SELECT c.MaSP, s.TenSP, c.SoLuong, c.DonGia, c.ThanhTien FROM ChiTietHoaDon c JOIN SANPHAM s ON c.MaSP = s.MaSP WHERE c.MaHD=?", (mahd,))
-        rows = db.cursor.fetchall()
-        for r in rows:
-            tree.insert("", "end", values=(r.MaSP.strip(), r.TenSP, r.SoLuong, f"{int(r.DonGia):,}", f"{int(r.ThanhTien):,}"))
-        # cập nhật tổng hiển thị
-        db.cursor.execute("SELECT TongTien FROM HoaDon WHERE MaHD=?", (mahd,))
-        row = db.cursor.fetchone()
-        tong = int(row.TongTien) if row and row.TongTien is not None else 0
-        win.title(f"Chi tiết Hóa đơn {mahd} - Tổng: {tong:,} đ")
+        status_label_var_detail.set("Đang tải chi tiết...")
+        tree.update_idletasks()
+        try:
+            query = "SELECT c.MaSP, s.TenSP, c.SoLuong, c.DonGia, c.ThanhTien FROM ChiTietHoaDon c JOIN SANPHAM s ON c.MaSP = s.MaSP WHERE c.MaHD=?"
+            rows = db.fetch_query(query, (mahd,))
+            
+            tree_data = []
+            for r in rows:
+                values_tuple = (
+                    r["MaSP"].strip(), 
+                    r["TenSP"], 
+                    r["SoLuong"], 
+                    f"{int(r['DonGia']):,}", 
+                    f"{int(r['ThanhTien']):,}"
+                )
+                tree_data.append({"iid": r["MaSP"], "values": values_tuple})
 
+            def on_load_complete():
+                # Cập nhật tổng tiền trên tiêu đề cửa sổ
+                try:
+                    tong = db.execute_scalar("SELECT TongTien FROM HoaDon WHERE MaHD=?", (mahd,)) or 0
+                    win.title(f"Chi tiết Hóa đơn {mahd} - Tổng: {int(tong):,} đ")
+                    status_label_var_detail.set(f"Đã tải {len(rows)} mặt hàng.")
+                except Exception as e:
+                    win.title(f"Chi tiết Hóa đơn {mahd} - Lỗi lấy tổng")
+                    status_label_var_detail.set("Lỗi!")
+            
+            fill_treeview_chunked(
+                tree, 
+                tree_data, 
+                on_complete=on_load_complete
+            )
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể tải chi tiết hóa đơn: {e}", parent=win)
+
+    # SỬA 11: Nâng cấp delete_item (dùng iid và execute_query)
     def delete_item():
         sel = tree.selection()
         if not sel:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn mặt hàng để xóa.")
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn mặt hàng để xóa.", parent=win)
             return
-        values = tree.item(sel[0])["values"]
-        masp_sel = values[0]
+        
+        masp_sel = sel[0] # Lấy iid (MaSP)
+        
         if messagebox.askyesno("Xác nhận", f"Bạn có chắc muốn xóa {masp_sel} khỏi hóa đơn?"):
-            try:
-                db.cursor.execute("DELETE FROM ChiTietHoaDon WHERE MaHD=? AND MaSP=?", (mahd, masp_sel))
-                db.conn.commit()
+            query = "DELETE FROM ChiTietHoaDon WHERE MaHD=? AND MaSP=?"
+            if db.execute_query(query, (mahd, masp_sel)):
                 recalc_invoice_total(db.cursor, db.conn, mahd)
                 load_items()
-            except Exception as e:
-                db.conn.rollback()
-                messagebox.showerror("Lỗi", f"Không thể xóa mặt hàng: {e}")
+                parent_refresh()
 
+    # SỬA 12: Nâng cấp edit_qty (dùng iid và execute_query)
     def edit_qty():
         sel = tree.selection()
         if not sel:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn mặt hàng để sửa.")
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn mặt hàng để sửa.", parent=win)
             return
-        values = tree.item(sel[0])["values"]
-        masp_sel = values[0]
-        # ask new qty
-        new_q = simpledialog.askinteger("Sửa SL", f"Nhập SL mới cho {masp_sel}:", minvalue=1)
+        
+        masp_sel = sel[0] # Lấy iid (MaSP)
+        
+        new_q = simpledialog.askinteger("Sửa SL", f"Nhập SL mới cho {masp_sel}:", minvalue=1, parent=win)
         if new_q is None:
             return
-        try:
-            db.cursor.execute("UPDATE ChiTietHoaDon SET SoLuong=? WHERE MaHD=? AND MaSP=?", (new_q, mahd, masp_sel))
-            db.conn.commit()
+        
+        query = "UPDATE ChiTietHoaDon SET SoLuong=? WHERE MaHD=? AND MaSP=?"
+        if db.execute_query(query, (new_q, mahd, masp_sel)):
             recalc_invoice_total(db.cursor, db.conn, mahd)
             load_items()
-        except Exception as e:
-            db.conn.rollback()
-            messagebox.showerror("Lỗi", f"Không thể cập nhật SL: {e}")
+            parent_refresh()
 
     # Khung chứa các nút bên phải
     btnf = tk.Frame(right, bg="#f5f5f5")
     btnf.pack(fill="x", pady=8)
-
-    # Style thống nhất cho tất cả các nút
-    style = ttk.Style()
-    style.configure("Invoice.TButton",
-                    font=("Segoe UI", 10, "bold"),
-                    anchor="center",
-                    padding=(5, 8))
-
-
-    # Nút thao tác
+    
+    # ... (Các nút giữ nguyên)
     ttk.Button(btnf, text="➕ Thêm", style="Add.TButton", command=add_item).pack(fill="x", pady=4)
     ttk.Button(btnf, text="✏️ Sửa SL", style="Edit.TButton", command=edit_qty).pack(fill="x", pady=4)
     ttk.Button(btnf, text="🗑 Xóa", style="Delete.TButton", command=delete_item).pack(fill="x", pady=4)
     ttk.Button(btnf, text="Đóng", style="Close.TButton", command=win.destroy).pack(fill="x", pady=8)
 
-
-
     # load initial
     load_items()
 
 # ---------- DELETE INVOICE ----------
+# SỬA 13: Nâng cấp delete_invoice (dùng iid và execute_scalar)
 def delete_invoice(tree, refresh):
     """Xóa hóa đơn (sử dụng helper safe_delete, có xử lý chi tiết hóa đơn)."""
     selected = tree.selection()
@@ -451,14 +483,11 @@ def delete_invoice(tree, refresh):
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn hóa đơn cần xóa!")
         return
 
-    values = tree.item(selected[0])["values"]
-    mahd = values[0]
+    mahd = selected[0] # Lấy MaHD (iid)
 
     try:
         # Kiểm tra xem hóa đơn có chi tiết không
-        db.cursor.execute("SELECT COUNT(*) AS SoLuong FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,))
-        row = db.cursor.fetchone()
-        count = row.SoLuong if row else 0
+        count = db.execute_scalar("SELECT COUNT(*) FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,)) or 0
 
         if count > 0:
             confirm = messagebox.askyesno(
@@ -468,10 +497,13 @@ def delete_invoice(tree, refresh):
             )
             if not confirm:
                 return
-            db.cursor.execute("DELETE FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,))
-            db.conn.commit()
+            
+            # Xóa ChiTietHoaDon trước
+            if not db.execute_query("DELETE FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,)):
+                messagebox.showerror("Lỗi", "Không thể xóa chi tiết hóa đơn, thao tác đã hủy.")
+                return
 
-        # Gọi helper để xóa hóa đơn
+        # Gọi helper để xóa hóa đơn (bảng cha)
         safe_delete(
             table_name="HoaDon",
             key_column="MaHD",
@@ -485,17 +517,37 @@ def delete_invoice(tree, refresh):
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể xóa hóa đơn: {e}")
 
-
+# SỬA 14: Sửa lỗi logic và chuẩn hóa update_customer_points
 def update_customer_points(mahd):
-    """Cộng điểm tích lũy cho khách hàng sau khi thanh toán"""
-    db.cursor.execute("SELECT MaKH, TongTien , TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
-    row = db.cursor.fetchone()
-    if row and row.MaKH:
-        makh, tongtien = row.MaKH, row.TongTien or 0
-        diem_cong = int(tongtien // 10000)  # mỗi 10,000đ = 1 điểm
-        db.cursor.execute("SELECT MaKH, TongTien, TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
-        db.conn.commit()
-    if not row or row.TrangThai != "Đã thanh toán":
-        return  # chỉ tích điểm khi đã thanh toán
-
-
+    """
+    Cập nhật điểm tích lũy cho khách hàng DỰA TRÊN HÓA ĐƠN.
+    Chỉ cộng điểm nếu hóa đơn 'Đã thanh toán'.
+    """
+    try:
+        # Lấy thông tin hóa đơn (MaKH, TongTien, TrangThai)
+        record = db.fetch_query("SELECT MaKH, TongTien, TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
+        if not record:
+            return # Không tìm thấy hóa đơn
+        
+        row = record[0]
+        
+        # Chỉ cộng điểm nếu có MaKH và TrangThai = 'Đã thanh toán'
+        if row["MaKH"] and row["TrangThai"] == 'Đã thanh toán':
+            makh = row["MaKH"]
+            tongtien = row["TongTien"] or 0
+            
+            # Tính điểm (ví dụ: 10,000đ = 1 điểm)
+            diem_cong = int(tongtien // 10000)
+            
+            if diem_cong > 0:
+                # Cập nhật bảng KhachHang
+                query = "UPDATE KhachHang SET DiemTichLuy = DiemTichLuy + ? WHERE MaKH = ?"
+                db.execute_query(query, (diem_cong, makh))
+                
+                # nếu hóa đơn 'Đã thanh toán'. 
+                # Cần cân nhắc chuyển logic này ra ngoài,
+                # ví dụ: chỉ chạy khi Hóa đơn chuyển trạng thái sang 'Đã thanh toán'.)
+                
+    except Exception as e:
+        print(f"Lỗi cập nhật điểm khách hàng: {e}")
+        # Không hiển thị messagebox lỗi ở đây để tránh làm phiền khi thêm/sửa CTHD

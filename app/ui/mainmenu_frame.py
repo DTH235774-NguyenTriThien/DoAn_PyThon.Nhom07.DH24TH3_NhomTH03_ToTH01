@@ -24,10 +24,10 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
     root.configure(bg="#f5e6ca") # Màu nền tổng thể
 
     # Thiết lập kích thước cửa sổ và căn giữa
-    window_width = 1280
+    window_width = 1500
     window_height = 720
     center_window(root, window_width, window_height, offset_y=-50)
-    root.minsize(1000, 600)
+    root.minsize(1200, 600)
     
     # (Style đã được chuyển sang theme.py, không cần định nghĩa ở đây)
 
@@ -98,35 +98,58 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
         # (Nơi chúng ta import và gọi các hàm create_..._module)
         # =========================================================
         elif module_name == "Employees":
-            tk.Label(module_container, text="Đang tải Module: Quản lý Nhân viên...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
-            # Ví dụ Giai đoạn 3:
-            # from app.modules.employees import create_employee_module
-            # module_frame_instance = create_employee_module(module_container, username_display, role, on_back_to_dashboard_callback)
-            # module_frame_instance.pack(fill="both", expand=True)
-            
+            from app.modules.employees import create_employee_module
+            module_frame_instance = create_employee_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
         elif module_name == "Products":
-            tk.Label(module_container, text="Đang tải Module: Quản lý Sản phẩm...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
+            from app.modules.drinks import create_drinks_module
+            module_frame_instance = create_drinks_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
         elif module_name == "Recipes":
-            tk.Label(module_container, text="Đang tải Module: Quản lý Công thức...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
+            from app.modules.recipes import create_recipes_module
+            module_frame_instance = create_recipes_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
         elif module_name == "Ingredients":
-            tk.Label(module_container, text="Đang tải Module: Quản lý Kho...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
+            from app.modules.ingredients import create_ingredients_module
+            module_frame_instance = create_ingredients_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
+            
         elif module_name == "Invoices":
-            tk.Label(module_container, text="Đang tải Module: Quản lý Hóa đơn...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
+            from app.modules.invoices import create_invoices_module
+            # (Đã sửa ở lần trước)
+            module_frame_instance = create_invoices_module(
+                module_container, 
+                username_display, 
+                on_back_to_dashboard_callback
+            )
+            module_frame_instance.pack(fill="both", expand=True)
+
+        # SỬA 1: THÊM LỆNH GỌI MODULE CUSTOMERS
+        elif module_name == "Customers":
+            from app.modules.customers import create_customers_module
+            module_frame_instance = create_customers_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
+            
         elif module_name == "Reports":
-            tk.Label(module_container, text="Đang tải Module: Báo cáo...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
+            from app.modules.reports import create_reports_module
+            module_frame_instance = create_reports_module(module_container, on_back_to_dashboard_callback)
+            module_frame_instance.pack(fill="both", expand=True)
         elif module_name == "Settings":
             tk.Label(module_container, text="Đang tải Module: Cấu hình...", font=("Segoe UI", 14, "bold"), bg="#f9fafb").pack(pady=50)
 
-    # Tạo các nút điều hướng (7 nút)
-    # (Lưu ý: Chúng ta sẽ thêm 1 nút Cấu hình (Settings) cho đủ 8)
-    ttk.Button(menu_buttons_frame, text="  Dashboard", style="Sidebar.TButton", command=lambda: load_module("Dashboard")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Quản lý Nhân viên", style="Sidebar.TButton", command=lambda: load_module("Employees")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Quản lý Sản phẩm", style="Sidebar.TButton", command=lambda: load_module("Products")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Quản lý Công thức", style="Sidebar.TButton", command=lambda: load_module("Recipes")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Quản lý Kho", style="Sidebar.TButton", command=lambda: load_module("Ingredients")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Quản lý Hóa đơn", style="Sidebar.TButton", command=lambda: load_module("Invoices")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Báo cáo & Thống kê", style="Sidebar.TButton", command=lambda: load_module("Reports")).pack(fill="x", pady=2, padx=10)
-    ttk.Button(menu_buttons_frame, text="  Cấu hình hệ thống", style="Sidebar.TButton", command=lambda: load_module("Settings")).pack(fill="x", pady=2, padx=10)
+    # Tạo các nút điều hướng
+    ttk.Button(menu_buttons_frame, text="   Dashboard", style="Sidebar.TButton", command=lambda: load_module("Dashboard")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Quản lý Nhân viên", style="Sidebar.TButton", command=lambda: load_module("Employees")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Quản lý Sản phẩm", style="Sidebar.TButton", command=lambda: load_module("Products")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Quản lý Công thức", style="Sidebar.TButton", command=lambda: load_module("Recipes")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Quản lý Kho", style="Sidebar.TButton", command=lambda: load_module("Ingredients")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Quản lý Hóa đơn", style="Sidebar.TButton", command=lambda: load_module("Invoices")).pack(fill="x", pady=2, padx=10)
+    
+    # SỬA 2: THÊM NÚT QUẢN LÝ KHÁCH HÀNG
+    ttk.Button(menu_buttons_frame, text="   Quản lý Khách hàng", style="Sidebar.TButton", command=lambda: load_module("Customers")).pack(fill="x", pady=2, padx=10)
+    
+    ttk.Button(menu_buttons_frame, text="   Báo cáo & Thống kê", style="Sidebar.TButton", command=lambda: load_module("Reports")).pack(fill="x", pady=2, padx=10)
+    ttk.Button(menu_buttons_frame, text="   Cấu hình hệ thống", style="Sidebar.TButton", command=lambda: load_module("Settings")).pack(fill="x", pady=2, padx=10)
 
 
     # --- Thông tin người dùng & Đăng xuất (ở cuối Sidebar) ---
@@ -153,7 +176,7 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
     
     def show_dashboard_content():
         clear_content_frame()
-        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ",
+        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ ANHKH",
                  font=("Segoe UI", 18, "bold"), bg="#f9fafb", fg="#4b2e05", wraplength=800, justify="center").pack(pady=80, padx=20)
         
         card_frame = tk.Frame(content_frame, bg="#f9fafb")
@@ -173,7 +196,3 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
 
     # Hiển thị Dashboard mặc định khi vào main menu
     load_module("Dashboard")
-
-# =========================================================
-# KHÔNG CÒN CÁC HÀM HELPER CŨ (from_app_open_...)
-# =========================================================

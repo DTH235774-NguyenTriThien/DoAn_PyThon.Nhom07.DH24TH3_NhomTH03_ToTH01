@@ -4,34 +4,40 @@ from tkinter import ttk, messagebox
 from app import db
 from app.db import execute_query
 from app.theme import setup_styles
-# Các hàm UI chung
-from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# SỬA 1: Xóa 'clear_window' và 'center_window'
+from app.utils.utils import create_form_window
 # Hàm nghiệp vụ
 from app.utils.business_helpers import safe_delete
 # Hàm sinh mã
 from app.utils.id_helpers import generate_next_makh
 
-def show_customers_module(root, username=None, role=None):
+# SỬA 2: Thay đổi chữ ký hàm, nhận 'parent_frame' thay vì 'root'
+def create_customers_module(parent_frame, on_back_callback):
 
-    """Giao diện quản lý khách hàng (phiên bản đồng bộ cấu trúc employee.py)"""
-    clear_window(root)
+    """Giao diện quản lý khách hàng (phiên bản "nhúng")"""
+    
+    # SỬA 3: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
+    # root.title("Quản lý Khách hàng")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1200, 600)
+    # root.minsize(1000, 550)
 
-    root.title("Quản lý Khách hàng")
-    root.configure(bg="#f5e6ca")
+    # SỬA 4: Tạo frame chính bên trong parent_frame
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
 
-    # ====== CẤU HÌNH FORM CHÍNH ======
-    center_window(root, 1200, 600)
-    root.minsize(1000, 550)
-
+    # SỬA 5: Gắn các widget con vào 'module_frame'
+    
     # ====== THANH TIÊU ĐỀ ======
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="👥 QUẢN LÝ KHÁCH HÀNG", bg="#4b2e05", fg="white",
              font=("Segoe UI", 18, "bold")).pack(pady=15)
 
     # ====== KHUNG CHỨC NĂNG ======
-    top_frame = tk.Frame(root, bg="#f5e6ca")
+    top_frame = tk.Frame(module_frame, bg="#f5e6ca")
     top_frame.pack(fill="x", pady=10)
 
     search_var = tk.StringVar()
@@ -47,7 +53,8 @@ def show_customers_module(root, username=None, role=None):
         "DiemTichLuy": "Điểm tích lũy"
     }
     columns = list(headers_vn.keys())
-    tree = ttk.Treeview(root, columns=columns, show="headings", height=15)
+    # Gắn tree vào module_frame
+    tree = ttk.Treeview(module_frame, columns=columns, show="headings", height=15) 
 
     for col in columns:
         tree.heading(col, text=headers_vn[col])
@@ -102,19 +109,21 @@ def show_customers_module(root, username=None, role=None):
 
     # ====== NÚT CHỨC NĂNG ======
     ttk.Button(top_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
+             command=load_data).pack(side="left", padx=5)
     
     ttk.Button(top_frame, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_customer(load_data)).pack(side="left", padx=5)
+             command=lambda: add_customer(load_data)).pack(side="left", padx=5)
     
+    # (role đã được xóa ở GĐ 2)
     ttk.Button(top_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_customer(tree, load_data, role)).pack(side="left", padx=5)
+             command=lambda: edit_customer(tree, load_data)).pack(side="left", padx=5)
     
     ttk.Button(top_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_customer(tree, load_data)).pack(side="left", padx=5)
+             command=lambda: delete_customer(tree, load_data)).pack(side="left", padx=5)
     
+    # (callback đã được sửa ở GĐ 2)
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role)).pack(side="right", padx=5)
+             command=on_back_callback).pack(side="right", padx=5)
     
     load_data()
 
@@ -128,12 +137,20 @@ def show_customers_module(root, username=None, role=None):
     def on_double_click(event):
         sel = tree.selection()
         if sel:
-            edit_customer(tree, load_data, role)
-    tree.bind("<Double-1>", on_double_click)   
+            # (role đã được xóa ở GĐ 2)
+            edit_customer(tree, load_data)
+    tree.bind("<Double-1>", on_double_click)  
 
     def refresh():
         load_data() 
 
+    # SỬA 6: Trả về frame chính của module
+    return module_frame
+
+# ================================================
+# CÁC HÀM CRUD (Giữ nguyên)
+# (add_customer, edit_customer, delete_customer)
+# ================================================
 
 def add_customer(refresh):
     """Thêm khách hàng mới (chuẩn hóa giao diện form theo Employee/Drink)"""
@@ -173,7 +190,7 @@ def add_customer(refresh):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu khách hàng", style="Add.TButton",
-               command=lambda: submit()).pack(ipadx=10, ipady=6)
+             command=lambda: submit()).pack(ipadx=10, ipady=6)
 
     # --- Hàm submit ---
     def submit():
@@ -226,7 +243,8 @@ def add_customer(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm khách hàng: {e}", parent=win)
 
 
-def edit_customer(tree, refresh, role):
+# (role đã được xóa ở GĐ 2)
+def edit_customer(tree, refresh):
     """Sửa thông tin khách hàng"""
     selected = tree.selection()
     if not selected:
@@ -286,11 +304,10 @@ def edit_customer(tree, refresh, role):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật khách hàng: {e}")
 
-    #ttk.Button(frame, text="💾 Lưu thay đổi", style="Add.TButton", command=save).grid(row=5, column=0, columnspan=2, pady=10)
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", style="Add.TButton",
-               command=save).pack(ipadx=10, ipady=6)
+             command=save).pack(ipadx=10, ipady=6)
 
 
 def delete_customer(tree, refresh):
@@ -317,4 +334,3 @@ def delete_customer(tree, refresh):
         refresh_func=refresh,
         item_label="khách hàng"
     )
-

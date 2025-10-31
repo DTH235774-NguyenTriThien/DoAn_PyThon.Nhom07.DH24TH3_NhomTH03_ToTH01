@@ -10,13 +10,15 @@ from datetime import datetime
 # Imports
 from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
-from app.utils.utils import go_back
+# SỬA 1: Xóa import go_back
+# from app.utils.utils import go_back 
 from app.utils.export_helper import export_to_excel_from_query
 from app.utils.business_helpers import safe_delete 
 from app.utils.treeview_helpers import fill_treeview_chunked 
 
-
-def build_tab(parent, root=None, username=None, role=None):
+# SỬA 2: Thay đổi chữ ký hàm, loại bỏ root, username, role
+# và nhận on_back_callback
+def build_tab(parent, on_back_callback):
     """Tab Bảng lương — quản lý lương nhân viên"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
@@ -30,29 +32,30 @@ def build_tab(parent, root=None, username=None, role=None):
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
     ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=lambda: refresh_data()).pack(side="left", padx=5)
+             command=lambda: refresh_data()).pack(side="left", padx=5)
     
     ttk.Button(btn_frame, text="💾 Xuất Excel", style="Add.TButton",
-               command=lambda: export_salary()).pack(side="left", padx=5)
+             command=lambda: export_salary()).pack(side="left", padx=5)
 
     ttk.Button(btn_frame, text="➕ Tính lương tháng này", style="Add.TButton", # Đổi tên nút
-               command=lambda: calculate_or_update_salary(refresh_data)).pack(side="left", padx=5)
+             command=lambda: calculate_or_update_salary(refresh_data)).pack(side="left", padx=5)
     
     ttk.Button(btn_frame, text="✏️ Cập nhật trạng thái", style="Edit.TButton",
-               command=lambda: edit_status(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: edit_status(tree, refresh_data)).pack(side="left", padx=5)
     
     ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_salary(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: delete_salary(tree, refresh_data)).pack(side="left", padx=5)
     
+    # SỬA 3: Sử dụng on_back_callback cho command
     ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role)).pack(side="left", padx=5)
+             command=on_back_callback).pack(side="left", padx=5)
 
     # --- Frame LỌC (Bên trái, tự mở rộng) ---
     filter_frame = tk.Frame(top_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
 
     tk.Label(filter_frame, text="🔎 Tìm NV:", font=("Arial", 11),
-             bg="#f9fafb").pack(side="left", padx=(5, 2))
+           bg="#f9fafb").pack(side="left", padx=(5, 2))
     search_var = tk.StringVar()
     entry_search = ttk.Entry(filter_frame, textvariable=search_var, width=30) 
     entry_search.pack(side="left", padx=5, fill="x", expand=True) 
@@ -145,6 +148,7 @@ def build_tab(parent, root=None, username=None, role=None):
 
 # ==============================================================
 # SỬA 3: NÂNG CẤP HÀM TÍNH LƯƠNG (LOGIC UPSERT)
+# (Phần này giữ nguyên, đã chính xác)
 # ==============================================================
 def calculate_or_update_salary(refresh_func):
     """

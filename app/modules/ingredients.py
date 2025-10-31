@@ -7,7 +7,8 @@ from app.theme import setup_styles
 
 # Import các helper chuẩn của dự án
 from app.db import fetch_query, execute_query, execute_scalar
-from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# SỬA 1: Xóa go_back, clear_window, center_window
+from app.utils.utils import create_form_window
 from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
 from app.utils.id_helpers import generate_next_manl 
@@ -30,24 +31,32 @@ UNITS_LIST = sorted(list(set(INGREDIENT_MAP.values())))
 
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-def show_ingredients_module(root, username=None, role=None):
+# SỬA 2: Đổi tên hàm và chữ ký hàm (bỏ username, role)
+def create_ingredients_module(parent_frame, on_back_callback):
     """Giao diện chính cho Module Quản lý Nguyên Liệu (Kho)"""
-    clear_window(root)
+    
+    # SỬA 3: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
-    root.title("📦 Quản lý Kho (Nguyên Liệu)")
-    root.configure(bg="#f5e6ca")
+    # root.title("📦 Quản lý Kho (Nguyên Liệu)")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1300, 600, offset_y=-60)
+    # root.minsize(1200, 600)
 
-    center_window(root, 1300, 600, offset_y=-60)
-    root.minsize(1200, 600)
+    # SỬA 4: Tạo frame chính bên trong parent_frame
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
 
+    # SỬA 5: Gắn các widget con vào 'module_frame'
+    
     # --- Header ---
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="📦 QUẢN LÝ KHO (NGUYÊN LIỆU)", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(pady=12)
 
     # --- Thanh điều khiển (Control Frame) ---
-    top_frame = tk.Frame(root, bg="#f9fafb")
+    top_frame = tk.Frame(module_frame, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10) 
 
     # --- Frame Nút (Bên phải) - Đồng bộ layout ---
@@ -55,31 +64,30 @@ def show_ingredients_module(root, username=None, role=None):
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
     ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=lambda: refresh_data()).pack(side="left", padx=5)
+             command=lambda: refresh_data()).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="➕ Thêm Mới", style="Add.TButton",
-               command=lambda: add_ingredient(refresh_data)).pack(side="left", padx=5)
+             command=lambda: add_ingredient(refresh_data)).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="📦 Nhập kho", style="Add.TButton",
-               command=lambda: restock_ingredient(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: restock_ingredient(tree, refresh_data)).pack(side="left", padx=5)
     
-    # =========================================================
-    # CẢI TIẾN 4: THÊM NÚT "ĐIỀU CHỈNH"
-    # =========================================================
     ttk.Button(btn_frame, text="🔧 Điều chỉnh", style="Edit.TButton",
-               command=lambda: adjust_inventory(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: adjust_inventory(tree, refresh_data)).pack(side="left", padx=5)
     
     ttk.Button(btn_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_ingredient(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: edit_ingredient(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_ingredient(tree, refresh_data)).pack(side="left", padx=5)
+             command=lambda: delete_ingredient(tree, refresh_data)).pack(side="left", padx=5)
+    
+    # SỬA 6: Cập nhật nút "Quay lại"
     ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role)).pack(side="left", padx=5)
+             command=on_back_callback).pack(side="left", padx=5)
 
     # --- Frame Lọc (Bên trái) ---
     filter_frame = tk.Frame(top_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
     # (Code Frame Lọc giữ nguyên)
     tk.Label(filter_frame, text="🔎 Tìm NL:", font=("Arial", 11),
-             bg="#f9fafb").pack(side="left", padx=(5, 2))
+           bg="#f9fafb").pack(side="left", padx=(5, 2))
     search_var = tk.StringVar()
     entry_search = ttk.Entry(filter_frame, textvariable=search_var, width=30) 
     entry_search.pack(side="left", padx=5, fill="x", expand=True) 
@@ -87,13 +95,13 @@ def show_ingredients_module(root, username=None, role=None):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-    # ===== TREEVIEW (Giữ nguyên) =====
+    # ===== TREEVIEW (Gắn vào module_frame) =====
     columns = ("MaNL", "TenNL", "DonVi", "SoLuongTon")
     headers = {
         "MaNL": "Mã NL", "TenNL": "Tên Nguyên Liệu",
         "DonVi": "Đơn vị tính", "SoLuongTon": "Số lượng tồn kho"
     }
-    tree = ttk.Treeview(root, columns=columns, show="headings", height=15)
+    tree = ttk.Treeview(module_frame, columns=columns, show="headings", height=15)
     for col, text in headers.items():
         tree.heading(col, text=text)
         tree.column(col, anchor="center", width=150)
@@ -141,8 +149,13 @@ def show_ingredients_module(root, username=None, role=None):
     search_var.trace_add("write", on_search_change)
     refresh_data() # Tải lần đầu
 
+    # SỬA 7: Trả về frame chính
+    return module_frame
+
 # ==============================================================
-#  HÀM CRUD VÀ NGHIỆP VỤ (Định nghĩa bên ngoài)
+#  HÀM CRUD VÀ NGHIỆP VỤ (KHÔNG CẦN THAY ĐỔI)
+#  (Các hàm này đều dùng Toplevel hoặc tree.master, 
+#  chúng độc lập với logic 'root' nên giữ nguyên)
 # ==============================================================
 
 # --- HÀM ADD_INGREDIENT (Giữ nguyên) ---
@@ -196,7 +209,7 @@ def add_ingredient(refresh_func):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
-               command=lambda: submit()).pack(ipadx=10, ipady=6)
+             command=lambda: submit()).pack(ipadx=10, ipady=6)
 
 # --- HÀM EDIT_INGREDIENT (Giữ nguyên) ---
 def edit_ingredient(tree, refresh_func):
@@ -251,7 +264,7 @@ def edit_ingredient(tree, refresh_func):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
-               command=lambda: save()).pack(ipadx=10, ipady=6)
+             command=lambda: save()).pack(ipadx=10, ipady=6)
 
 # --- HÀM RESTOCK_INGREDIENT (Giữ nguyên) ---
 def restock_ingredient(tree, refresh_func):
@@ -286,9 +299,7 @@ def restock_ingredient(tree, refresh_func):
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể nhập kho: {e}")
 
-# =========================================================
-# CẢI TIẾN 4: THÊM HÀM "ĐIỀU CHỈNH KHO"
-# =========================================================
+# --- HÀM ADJUST_INVENTORY (Giữ nguyên) ---
 def adjust_inventory(tree, refresh_func):
     """Điều chỉnh tồn kho (Hủy, hỏng, kiểm kê sai)"""
     selected = tree.selection()
@@ -336,9 +347,9 @@ def adjust_inventory(tree, refresh_func):
            db.execute_query(query_log, (manl, change_qty)):
             
             messagebox.showinfo("Thành công", f"Đã điều chỉnh kho {tennl}.\n"
-                                             f"Tồn kho cũ: {current_qty} {donvi}\n"
-                                             f"Tồn kho mới: {new_qty} {donvi}\n"
-                                             f"Chênh lệch: {change_qty:.3f} {donvi}")
+                                          f"Tồn kho cũ: {current_qty} {donvi}\n"
+                                          f"Tồn kho mới: {new_qty} {donvi}\n"
+                                          f"Chênh lệch: {change_qty:.3f} {donvi}")
             refresh_func()
         else:
             messagebox.showerror("Lỗi", "Không thể điều chỉnh kho (lỗi SQL).")

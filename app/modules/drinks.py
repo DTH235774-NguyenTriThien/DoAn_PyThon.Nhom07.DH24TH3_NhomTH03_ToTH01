@@ -5,34 +5,37 @@ from decimal import Decimal, InvalidOperation
 from app import db
 from app.db import execute_query
 from app.theme import setup_styles
-# Các hàm UI chung
-from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# SỬA 1: Xóa clear_window, center_window (chỉ giữ lại create_form_window)
+from app.utils.utils import create_form_window
 # Hàm nghiệp vụ
 from app.utils.business_helpers import safe_delete
 # Hàm sinh mã
 from app.utils.id_helpers import generate_next_masp
 
-
-def show_drinks_module(root, username=None, role=None):
-
-    clear_window(root)
+# SỬA 2: Đổi tên hàm và tham số
+# Nhận parent_frame (là module_container từ mainmenu)
+def create_drinks_module(parent_frame, on_back_callback):
+    
+    # SỬA 3: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
+    # root.title("Quản lý đồ uống")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1200, 700, offset_y=-60)
+    # root.minsize(1000, 550)
 
-    root.title("Quản lý đồ uống")
-    root.configure(bg="#f5e6ca")  # hoặc theme của bạn
-
-    # ====== CẤU HÌNH FORM CHÍNH ======
-    center_window(root, 1200, 700, offset_y=-60)
-    root.minsize(1000, 550)
-
-    # Header
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    # SỬA 4: Tạo frame chính của module, pack vào parent_frame
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
+    
+    # Header (pack vào module_frame)
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="☕ QUẢN LÝ SẢN PHẨM / ĐỒ UỐNG",
              bg="#4b2e05", fg="white", font=("Segoe UI", 16, "bold")).pack(pady=12)
 
-    # Top controls
-    top = tk.Frame(root, bg="#f5e6ca")
+    # Top controls (pack vào module_frame)
+    top = tk.Frame(module_frame, bg="#f5e6ca")
     top.pack(fill="x", pady=8, padx=12)
 
     search_var = tk.StringVar()
@@ -40,16 +43,9 @@ def show_drinks_module(root, username=None, role=None):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
-
-    #ttk.Button(top, text="Tải lại", command=lambda: load_data()).pack(side="left", padx=6)
-    #ttk.Button(top, text="➕ Thêm", command=lambda: add_drink(load_data)).pack(side="left", padx=6)
-    #ttk.Button(top, text="✏️ Sửa", command=lambda: edit_drink(tree, load_data, role)).pack(side="left", padx=6)
-    #ttk.Button(top, text="🗑️ Xóa", command=lambda: delete_drink(tree, load_data)).pack(side="left", padx=6)
-    #ttk.Button(top, text="⬅ Quay lại", command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
-
-    # Treeview
+    # Treeview (pack vào module_frame)
     columns = ("MaSP", "TenSP", "LoaiSP", "DonGia", "TrangThai")
-    tree = ttk.Treeview(root, columns=columns, show="headings", height=16)
+    tree = ttk.Treeview(module_frame, columns=columns, show="headings", height=16)
     headers_vn = {
         "MaSP": "Mã SP",
         "TenSP": "Tên sản phẩm",
@@ -90,28 +86,32 @@ def show_drinks_module(root, username=None, role=None):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu: {e}")
 
-
     # Button on top frame 
-
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
-               command=load_data).pack(side="left", padx=5)
+             command=load_data).pack(side="left", padx=5)
     ttk.Button(top, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_drink(load_data)).pack(side="left", padx=5)
+             command=lambda: add_drink(load_data)).pack(side="left", padx=5)
+    
+    # (role đã được xóa ở GĐ 2)
     ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_drink(tree, load_data, role)).pack(side="left", padx=5)
+             command=lambda: edit_drink(tree, load_data)).pack(side="left", padx=5)
+    
     ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_drink(tree, load_data)).pack(side="left", padx=5)
+             command=lambda: delete_drink(tree, load_data)).pack(side="left", padx=5)
+    
+    # (callback đã được sửa ở GĐ 2)
     ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
-           command=lambda: go_back(root, username, role)).pack(side="right", padx=5)
+             command=on_back_callback).pack(side="right", padx=5)
 
     load_data()
 
-        # Real-time search debounce
+    # Real-time search debounce
     search_after_id = {"id": None}
     def on_search_change(event=None):
         if search_after_id["id"]:
-            root.after_cancel(search_after_id["id"])
-        search_after_id["id"] = root.after(250, lambda: load_data(search_var.get().strip()))
+            # Cần dùng module_frame để gọi .after()
+            module_frame.after_cancel(search_after_id["id"])
+        search_after_id["id"] = module_frame.after(250, lambda: load_data(search_var.get().strip()))
 
     entry_search.bind("<KeyRelease>", on_search_change)
 
@@ -119,12 +119,19 @@ def show_drinks_module(root, username=None, role=None):
     def on_double_click(event):
         sel = tree.selection()
         if sel:
-            edit_drink(tree, load_data, role)
+            # (role đã được xóa ở GĐ 2)
+            edit_drink(tree, load_data)
     tree.bind("<Double-1>", on_double_click)
 
     def refresh():
         load_data()
+        
+    # SỬA 5: RETURN frame chính của module
+    return module_frame
 
+
+# (Các hàm add_drink, edit_drink, delete_drink giữ nguyên)
+# ... (toàn bộ code của 3 hàm đó) ...
 
 def add_drink(refresh):
     """Thêm sản phẩm / đồ uống (chuẩn hóa giao diện theo form Employee)"""
@@ -165,7 +172,7 @@ def add_drink(refresh):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
-               command=lambda: submit()).pack(ipadx=10, ipady=6)
+             command=lambda: submit()).pack(ipadx=10, ipady=6)
 
     # --- Hàm submit ---
     def submit():
@@ -216,7 +223,7 @@ def add_drink(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm sản phẩm: {e}", parent=win)
 
 
-def edit_drink(tree, refresh, role=None):
+def edit_drink(tree, refresh):
     """Sửa sản phẩm (đồng bộ giao diện với add)"""
     sel = tree.selection()
     if not sel:
@@ -242,7 +249,7 @@ def edit_drink(tree, refresh, role=None):
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=12, pady=12, fill="both", expand=True)
 
-    labels = ["Tên sản phẩm", "Loại", "Đơn giá", "Trạng thái"]
+    labels = ["Tên sản phẩm", "Loai", "Đơn giá", "Trạng thái"]
     entries = {}
     types = ["Cà phê", "Trà sữa", "Sinh tố", "Nước ngọt", "Khác"]
     statuses = ["Có hàng", "Hết hàng", "Ngưng bán"]
@@ -313,7 +320,6 @@ def edit_drink(tree, refresh, role=None):
                 win.destroy()
                 refresh()
                 
-
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật sản phẩm: {e}")
 
@@ -339,5 +345,3 @@ def delete_drink(tree, refresh):
         refresh_func=refresh,
         item_label="sản phẩm"
     )
-
-

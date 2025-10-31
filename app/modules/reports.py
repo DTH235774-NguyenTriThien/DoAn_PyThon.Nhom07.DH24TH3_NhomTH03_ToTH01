@@ -7,10 +7,11 @@ from datetime import datetime, timedelta
 # Import các helper chuẩn của dự án
 from app import db
 from app.theme import setup_styles
-from app.utils.utils import clear_window, go_back, center_window
+# SỬA 1: Xóa go_back, center_window. Giữ clear_window.
+from app.utils.utils import clear_window
 from app.utils.treeview_helpers import fill_treeview_chunked
 
-# SỬA 1: Import helper báo cáo MỚI
+# Import helper báo cáo MỚI
 from app.utils.report_helpers import (
     get_kpi_data, get_top_products_data, 
     get_daily_revenue_data,
@@ -31,24 +32,33 @@ except ImportError:
 
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-def show_reports_module(root, username=None, role=None, on_exit_callback=None):
+# SỬA 2: Đổi tên hàm
+# SỬA 3: Thay đổi chữ ký hàm (bỏ username, role, on_exit_callback)
+def create_reports_module(parent_frame, on_back_callback):
     """Giao diện chính cho Module Báo cáo & Thống kê"""
-    clear_window(root)
+    
+    # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
-    root.title("📊 BÁO CÁO & THỐNG KÊ")
-    root.configure(bg="#f5e6ca")
+    # root.title("📊 BÁO CÁO & THỐNG KÊ")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1200, 700, offset_y=-60)
+    # root.minsize(1000, 600)
 
-    center_window(root, 1200, 700, offset_y=-60)
-    root.minsize(1000, 600)
+    # SỬA 5: Tạo frame chính bên trong parent_frame
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
 
+    # SỬA 6: Gắn các widget con vào 'module_frame'
+    
     # --- Header ---
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="📊 BÁO CÁO & THỐNG KÊ", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(pady=12)
 
     # --- Thanh điều khiển (Control Frame) ---
-    control_frame = tk.Frame(root, bg="#f9fafb")
+    control_frame = tk.Frame(module_frame, bg="#f9fafb")
     control_frame.pack(fill="x", pady=10, padx=10)
 
     # --- Frame Nút (Bên phải) ---
@@ -56,16 +66,15 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
     btn_generate = ttk.Button(btn_frame, text="✅ Tạo Báo cáo", style="Add.TButton",
-                              command=lambda: generate_report())
+                                command=lambda: generate_report())
     btn_generate.pack(side="left", padx=5)
     
+    # SỬA 7: Cập nhật nút "Quay lại"
     btn_back = ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
-                          command=lambda: go_back(root, username, role, on_exit_callback))
+                          command=on_back_callback)
     btn_back.pack(side="left", padx=5)
 
-    # =========================================================
-    # SỬA 2: TÁI CẤU TRÚC FILTER_FRAME DÙNG GRID (CẢI THIỆN 1)
-    # =========================================================
+    # (Code bộ lọc giữ nguyên, vì nó đã pack vào 'control_frame')
     filter_frame = tk.Frame(control_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
 
@@ -101,27 +110,23 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
     lbl_date_end.grid(row=1, column=2, padx=(10, 5), pady=5, sticky="e")
     
     date_end_entry = DateEntry(filter_frame, date_pattern="dd/mm/yyyy", font=("Arial", 11),
-                               background="#3e2723", foreground="white", borderwidth=2, width=12)
+                                 background="#3e2723", foreground="white", borderwidth=2, width=12)
     date_end_entry.set_date(today)
     date_end_entry.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
     # --- Hàng 1, Cột 0-3: Bộ lọc THÁNG/NĂM (Ẩn/Hiện) ---
     lbl_month = ttk.Label(filter_frame, text="Tháng:", background="#f9fafb",
               font=("Segoe UI", 11))
-    # lbl_month.grid(row=1, column=0, padx=(10, 5), pady=5, sticky="e") # Sẽ được grid() sau
     
     month_var = tk.StringVar(value=today.month)
     cb_month = ttk.Combobox(filter_frame, textvariable=month_var, state="readonly",
-                             font=("Segoe UI", 11), width=10, values=list(range(1, 13)))
-    # cb_month.grid(row=1, column=1, padx=5, pady=5, sticky="w") # Sẽ được grid() sau
+                              font=("Segoe UI", 11), width=10, values=list(range(1, 13)))
     
     lbl_year = ttk.Label(filter_frame, text="Năm:", background="#f9fafb",
               font=("Segoe UI", 11))
-    # lbl_year.grid(row=1, column=2, padx=(10, 5), pady=5, sticky="e") # Sẽ được grid() sau
     
     year_var = tk.StringVar(value=today.year)
     entry_year = ttk.Entry(filter_frame, textvariable=year_var, font=("Segoe UI", 11), width=10)
-    # entry_year.grid(row=1, column=3, padx=5, pady=5, sticky="w") # Sẽ được grid() sau
 
     # --- Hàng 2: Trạng thái ---
     status_label_var = tk.StringVar(value="")
@@ -163,12 +168,14 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
     on_report_type_changed() # Chạy lần đầu để setup đúng
 
     # --- Khung kết quả (Result Frame) ---
-    result_frame = tk.Frame(root, bg="#f5e6ca")
+    result_frame = tk.Frame(module_frame, bg="#f5e6ca")
     result_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # =========================================================
-    # SỬA 3: CẬP NHẬT LOGIC HÀM generate_report
-    # =========================================================
+    # (Các hàm generate_report, _build_kpi_and_chart_report, 
+    #  _build_top_product_chart, _build_salary_dashboard 
+    #  đã được viết đúng, chúng sử dụng 'result_frame' làm 'parent' 
+    #  nên không cần sửa đổi gì bên trong chúng)
+
     def generate_report():
         """Hàm điều hướng, gọi báo cáo tương ứng"""
         clear_window(result_frame)
@@ -204,7 +211,6 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
 
     # --- Báo cáo 1: KPI Cards + Biểu đồ đường (Doanh thu) ---
     def _build_kpi_and_chart_report(parent, start_date, end_date):
-        # (Hàm này giữ nguyên như cũ, đã rất tốt)
         clear_window(parent)
         kpi_data = get_kpi_data(start_date, end_date)
         daily_data = get_daily_revenue_data(start_date, end_date)
@@ -246,7 +252,7 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
         ax.spines['left'].set_color('#4b2e05')
         ax.spines['bottom'].set_color('#4b2e05')
         ax.plot( [r['Ngay'] for r in daily_data], [r['DoanhThuNgay'] for r in daily_data], 
-                 marker='o', linestyle='-', color='#a47148', linewidth=2)
+               marker='o', linestyle='-', color='#a47148', linewidth=2)
         ax.set_title("Doanh thu theo Ngày", color="#4b2e05", fontdict={'fontsize': 14, 'fontweight': 'bold'})
         ax.set_ylabel("Doanh thu (VNĐ)", color="#4b2e05")
         ax.xaxis.set_major_formatter(DateFormatter('%d/%m'))
@@ -259,7 +265,6 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
 
     # --- Báo cáo 2: Biểu đồ cột ngang (Top Sản phẩm) ---
     def _build_top_product_chart(parent, status_var, start_date, end_date):
-        # (Hàm này giữ nguyên như cũ, đã rất tốt)
         status_var.set("Đang tải...")
         parent.update_idletasks()
         if not MATPLOTLIB_AVAILABLE:
@@ -270,7 +275,7 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
             rows = get_top_products_data(start_date, end_date)
             if not rows:
                 ttk.Label(parent, text="Không có dữ liệu sản phẩm trong khoảng thời gian này.",
-                          font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
+                            font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
                 return
             products = [r["TenSP"] for r in reversed(rows)]
             quantities = [r["TongSoLuong"] for r in reversed(rows)]
@@ -299,11 +304,8 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
             status_var.set("Lỗi!")
             messagebox.showerror("Lỗi SQL", f"Không thể lấy báo cáo sản phẩm: {e}")
 
-    # =========================================================
-    # SỬA 4: THAY THẾ HÀM BÁO CÁO LƯƠNG BẰNG DASHBOARD
-    # =========================================================
+    # --- Báo cáo 3: Dashboard Lương (KPIs + Pie Chart) ---
     def _build_salary_dashboard(parent, status_var, month, year):
-        """Vẽ Dashboard Lương (KPI Cards + Biểu đồ tròn)"""
         status_var.set("Đang tải...")
         parent.update_idletasks()
 
@@ -319,7 +321,7 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
 
             if kpi_data["TongGioLam"] == 0:
                 ttk.Label(parent, text=f"Không có dữ liệu lương cho tháng {month}/{year}.",
-                          font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
+                            font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
                 status_var.set("Không có dữ liệu.")
                 return
 
@@ -359,14 +361,11 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
             labels = [r['ChucVu'] for r in pie_data]
             sizes = [r['LuongTheoChucVu'] for r in pie_data]
             
-            # Định nghĩa màu (đồng bộ)
-            # Dùng các sắc thái Nâu / Đỏ gạch / Vàng đất (giống chủ đề)
             theme_colors = ['#a47148', '#c75c5c', '#8b5e34', '#f5e6ca', '#d7ccc8']
             
             fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
             fig.set_facecolor('#f9fafb') # Nền ngoài
 
-            # Vẽ biểu đồ
             wedges, texts, autotexts = ax.pie(
                 sizes, 
                 autopct='%1.1f%%', # Hiển thị %
@@ -408,5 +407,9 @@ def show_reports_module(root, username=None, role=None, on_exit_callback=None):
             status_var.set("Lỗi!")
             messagebox.showerror("Lỗi SQL", f"Không thể lấy báo cáo lương: {e}")
 
+    
     # --- Tải báo cáo mặc định khi mở ---
     generate_report()
+    
+    # SỬA 9: Trả về frame chính
+    return module_frame

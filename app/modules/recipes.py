@@ -7,16 +7,15 @@ from app.theme import setup_styles
 
 # Import các helper chuẩn của dự án
 from app.db import fetch_query, execute_query, execute_scalar
-from app.utils.utils import clear_window, create_form_window, go_back, center_window
+# SỬA 1: Xóa các import không cần thiết (go_back, clear_window, v.v...)
+# from app.utils.utils import clear_window, create_form_window, go_back, center_window
 from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
 
 # =========================================================
-# SỬA 1 (VẤN ĐỀ 1 & 3): CHUẨN HÓA VÀ PHÂN LOẠI
+# TỪ ĐIỂN VÀ CACHE NGUYÊN LIỆU (Giữ nguyên)
 # =========================================================
 
-# TỪ ĐIỂN NGUYÊN LIỆU THỰC PHẨM (DÙNG CHO CÔNG THỨC)
-# TỪ ĐIỂN NGUYÊN LIỆU THỰC PHẨM (DÙNG CHO CÔNG THỨC)
 RECIPE_FOOD_MAP = {
     # Cà phê
     "Cà phê hạt": "g", "Cà phê bột": "g",
@@ -52,9 +51,6 @@ RECIPE_FOOD_MAP = {
 _master_ingredient_keys = [] 
 _ingredient_map = {} 
 
-# =========================================================
-# SỬA 2: SỬA LỖI LOGIC LỌC (LỌC NGHIÊM NGẶT)
-# =========================================================
 def load_ingredient_cache():
     """Tải và cache danh sách NGUYÊN LIỆU THỰC PHẨM (lọc bỏ Vật tư VÀ đơn vị cũ)"""
     global _ingredient_map, _master_ingredient_keys
@@ -85,27 +81,39 @@ def load_ingredient_cache():
             _master_ingredient_keys = []
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-def show_recipes_module(root, username=None, role=None, on_exit_callback=None):
-    clear_window(root)
+# SỬA 2: Đổi tên hàm
+# SỬA 3: Thay đổi chữ ký hàm (bỏ username, role, on_exit_callback)
+def create_recipes_module(parent_frame, on_back_callback):
+    
+    # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
-    root.title("📜 Quản lý Công thức Sản phẩm")
-    root.configure(bg="#f5e6ca")
+    # root.title("📜 Quản lý Công thức Sản phẩm")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1200, 700, offset_y=-60)
+    # root.minsize(1000, 600)
 
-    center_window(root, 1200, 700, offset_y=-60)
-    root.minsize(1000, 600)
+    # SỬA 5: Tạo frame chính bên trong parent_frame
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
+
+    # SỬA 6: Gắn các widget con vào 'module_frame'
 
     # --- Header & Nút Quay lại ---
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="📜 QUẢN LÝ CÔNG THỨC SẢN PHẨM", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(pady=12)
-    top_frame = tk.Frame(root, bg="#f9fafb")
+    
+    top_frame = tk.Frame(module_frame, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10)
+    
+    # SỬA 7: Cập nhật nút "Quay lại"
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role, on_exit_callback)).pack(side="right", padx=5)
+             command=on_back_callback).pack(side="right", padx=5)
 
     # --- Khung chứa 2 panel chính ---
-    main_frame = tk.Frame(root, bg="#f5e6ca")
+    main_frame = tk.Frame(module_frame, bg="#f5e6ca")
     main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
     # --- KHUNG BÊN TRÁI (DANH SÁCH SẢN PHẨM) ---
@@ -125,7 +133,7 @@ def show_recipes_module(root, username=None, role=None, on_exit_callback=None):
     right_panel = tk.Frame(main_frame, bg="#f9fafb", relief="solid", borderwidth=1)
     right_panel.pack(side="right", fill="both", expand=True, padx=(5, 0))
     lbl_recipe_title = tk.Label(right_panel, text="2. Công thức cho: [Chưa chọn]", 
-                                font=("Segoe UI", 12, "bold"), bg="#f9fafb", fg="#4b2e05")
+                                 font=("Segoe UI", 12, "bold"), bg="#f9fafb", fg="#4b2e05")
     lbl_recipe_title.pack(pady=10)
     status_label_recipe = tk.StringVar(value="")
     ttk.Label(right_panel, textvariable=status_label_recipe, font=("Arial", 10, "italic"), 
@@ -239,19 +247,20 @@ def show_recipes_module(root, username=None, role=None, on_exit_callback=None):
     def add_ingredient_to_recipe():
         selected_product = tree_products.selection()
         if not selected_product:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một SẢN PHẨM ở cây bên trái trước.", parent=root)
+            # SỬA 8: Thay parent=root thành parent=parent_frame
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một SẢN PHẨM ở cây bên trái trước.", parent=parent_frame)
             return
         masp = selected_product[0]
         nl_key = cb_ingredients_var.get()
         if not nl_key:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một NGUYÊN LIỆU để thêm.", parent=root)
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một NGUYÊN LIỆU để thêm.", parent=parent_frame)
             return
         manl = _ingredient_map.get(nl_key)
         try:
             qty = Decimal(entry_qty_var.get())
             if qty <= 0: raise ValueError
         except (InvalidOperation, ValueError):
-            messagebox.showwarning("Lỗi", "Số lượng phải là một số > 0.", parent=root)
+            messagebox.showwarning("Lỗi", "Số lượng phải là một số > 0.", parent=parent_frame)
             return
         try:
             exists = db.execute_scalar("SELECT COUNT(*) FROM CongThuc WHERE MaSP = ? AND MaNL = ?", (masp, manl))
@@ -264,33 +273,38 @@ def show_recipes_module(root, username=None, role=None, on_exit_callback=None):
                 params = (masp, manl, qty)
                 action = "thêm"
             if db.execute_query(query, params):
-                messagebox.showinfo("Thành công", f"Đã {action} nguyên liệu vào công thức.", parent=root)
+                messagebox.showinfo("Thành công", f"Đã {action} nguyên liệu vào công thức.", parent=parent_frame)
                 tensp = tree_products.item(masp, "values")[1]
                 load_recipe_for_product(masp, tensp)
                 entry_qty_var.set("")
                 cb_ingredients_var.set("")
                 entry_search_nl_var.set("")
         except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể {action} nguyên liệu: {e}", parent=root)
+            messagebox.showerror("Lỗi", f"Không thể {action} nguyên liệu: {e}", parent=parent_frame)
 
     def remove_ingredient_from_recipe():
         selected_product = tree_products.selection()
         selected_ingredient = tree_recipe.selection()
         if not selected_product:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một SẢN PHẨM ở cây bên trái.", parent=root)
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một SẢN PHẨM ở cây bên trái.", parent=parent_frame)
             return
         if not selected_ingredient:
-            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một NGUYÊN LIỆU ở cây bên phải để xóa.", parent=root)
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn một NGUYÊN LIỆU ở cây bên phải để xóa.", parent=parent_frame)
             return
         masp = selected_product[0]
         manl = selected_ingredient[0]
         tennl = tree_recipe.item(manl, "values")[1]
-        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa '{tennl}' khỏi công thức này?"):
+        
+        # SỬA 8: Thêm parent=parent_frame
+        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa '{tennl}' khỏi công thức này?", parent=parent_frame):
             query = "DELETE FROM CongThuc WHERE MaSP = ? AND MaNL = ?"
             if db.execute_query(query, (masp, manl)):
-                messagebox.showinfo("Thành công", "Đã xóa nguyên liệu khỏi công thức.", parent=root)
+                messagebox.showinfo("Thành công", "Đã xóa nguyên liệu khỏi công thức.", parent=parent_frame)
                 tensp = tree_products.item(masp, "values")[1]
                 load_recipe_for_product(masp, tensp)
 
     # Tải danh sách sản phẩm (cây bên trái) khi mở
     load_all_products()
+    
+    # SỬA 9: Trả về frame chính
+    return module_frame

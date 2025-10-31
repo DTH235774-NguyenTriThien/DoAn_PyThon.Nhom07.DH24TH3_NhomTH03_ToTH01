@@ -1,3 +1,4 @@
+
 📁 Doan_Python (root)
 
 ├── Doan_Python/
@@ -18,7 +19,9 @@
 │   │   │   ├── customers.py
 │   │   │   ├── drinks.py
 │   │   │   ├── employees.py
+│   │   │   ├── ingredients.py
 │   │   │   ├── invoices.py
+│   │   │   ├── recipes.py
 │   │   │   ├── reports.py
 │   │   │   ├── __init__.py
 │   │   ├── ui/
@@ -26,7 +29,13 @@
 │   │   │   ├── mainmenu_frame.py
 │   │   │   ├── __init__.py
 │   │   ├── utils/
+│   │   │   ├── business_helpers.py
 │   │   │   ├── export_helper.py
+│   │   │   ├── id_helpers.py
+│   │   │   ├── report_helpers.py
+│   │   │   ├── search_helpers.py
+│   │   │   ├── time_helpers.py
+│   │   │   ├── treeview_helpers.py
 │   │   │   ├── utils.py
 │   │   │   ├── __init__.py
 │   │   │   ├── employee/
@@ -47,6 +56,11 @@
 │   │   ├── Sprint2.md
 │   ├── exports/
 │   │   ├── Bảng_Lương_20251027_231718.xlsx
+│   │   ├── Bảng_Lương_20251030_190447.xlsx
 │   ├── scripts/
 │   │   ├── create_admin.py
+│   │   ├── migrate_passwords.py
+│   │   ├── migrate_units.py
+│   │   ├── seed_ingredients.py
+│   │   ├── seed_products.py
 │   │   ├── test_mssql.py

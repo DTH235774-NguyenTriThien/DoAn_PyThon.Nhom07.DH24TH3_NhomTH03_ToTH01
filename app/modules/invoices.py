@@ -5,11 +5,10 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
 
-# SỬA 1: Cập nhật Imports
+# SỬA 1: Cập nhật Imports (xóa go_back, clear_window, center_window)
 from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
-# Các hàm UI chung
-from app.utils.utils import clear_window, create_form_window, go_back, center_window
+from app.utils.utils import create_form_window
 # Các hàm nghiệp vụ
 from app.utils.business_helpers import recalc_invoice_total, safe_delete
 # Hàm sinh mã
@@ -18,7 +17,8 @@ from app.utils.id_helpers import generate_next_mahd
 from app.utils.treeview_helpers import fill_treeview_chunked
 
 # =========================================================
-# SỬA LỖI LOGIC: ĐỊNH NGHĨA CÁC HÀM HELPER TRƯỚC
+# CÁC HÀM HELPER (CỬA SỔ CON VÀ NGHIỆP VỤ)
+# (Giữ nguyên các hàm: update_customer_points, invoice_detail_window)
 # =========================================================
 
 # ---------- UPDATE CUSTOMER POINTS (HELPER) ----------
@@ -51,6 +51,7 @@ def update_customer_points(mahd):
 def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='Chưa thanh toán'):
     """
     Quản lý chi tiết: thêm/sửa/xóa mặt hàng trong hóa đơn.
+    (Hàm này giữ nguyên, 'root' ở đây là cha của Toplevel, là đúng)
     """
     win = tk.Toplevel(root)
     win.title(f"Chi tiết Hóa đơn {mahd}")
@@ -58,6 +59,7 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
     win.configure(bg="#f5f5f5")
     win.state('zoomed') 
 
+    # (Code bên trong hàm này giữ nguyên)
     # Left: Treeview chi tiết
     left = tk.Frame(win, bg="#f5f5f5")
     left.pack(side="left", fill="both", expand=True, padx=8, pady=8)
@@ -282,14 +284,15 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
         btn_thanh_toan.config(state="disabled")
         
         ttk.Label(right, text="HÓA ĐƠN ĐÃ THANH TOÁN (CHỈ XEM)", 
-                  font=("Segoe UI", 10, "bold"), foreground="red", background="#f5f5f5")\
-                  .pack(anchor="w", pady=(10,2))
+                   font=("Segoe UI", 10, "bold"), foreground="red", background="#f5f5f5")\
+                   .pack(anchor="w", pady=(10,2))
 
     # load initial
     load_items()
 
 # ---------- OPEN INVOICE DETAIL (HELPER) ----------
-def open_invoice_detail(tree, parent_refresh, role=None):
+# SỬA 2: Xóa 'role' khỏi chữ ký hàm (vì không dùng)
+def open_invoice_detail(tree, parent_refresh):
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn hóa đơn để xem chi tiết.")
@@ -299,13 +302,15 @@ def open_invoice_detail(tree, parent_refresh, role=None):
     # Lấy Trạng Thái của hóa đơn
     trang_thai = db.execute_scalar("SELECT TrangThai FROM HoaDon WHERE MaHD = ?", (mahd,))
     
-    # Truyền trạng thái vào cửa sổ chi tiết
     # (Hàm invoice_detail_window đã được định nghĩa ở trên)
     invoice_detail_window(tree.master, mahd, parent_refresh, trang_thai)
 
 # ---------- CREATE A NEW INVOICE (HELPER) ----------
 def add_invoice(root, username, refresh):
-    """Thêm hóa đơn mới (chuẩn hóa giao diện form theo Employee/Drink)"""
+    """
+    Thêm hóa đơn mới.
+    'root' ở đây là cha của Toplevel (sẽ là parent_frame), 'username' dùng để điền sẵn.
+    """
     win, form = create_form_window("➕ Tạo hóa đơn mới", size="500x430")
     entries = {}
     labels = ["Mã hóa đơn", "Mã NV (người lập)", "Khách hàng", "Ngày lập", "Ghi chú", "Trạng thái"]
@@ -358,7 +363,7 @@ def add_invoice(root, username, refresh):
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu & Thêm mặt hàng", style="Add.TButton",
-               command=lambda: submit()).pack(ipadx=10, ipady=6)
+             command=lambda: submit()).pack(ipadx=10, ipady=6)
 
     def submit():
         try:
@@ -449,28 +454,33 @@ def delete_invoice(tree, refresh):
         messagebox.showerror("Lỗi", f"Không thể xóa hóa đơn: {e}")
 
 # =========================================================
-# SỬA LỖI LOGIC: ĐỊNH NGHĨA HÀM CHÍNH (MAIN) Ở CUỐI CÙNG
+# HÀM CHÍNH (MAIN MODULE)
 # =========================================================
 
-# ---------- SHOW MAIN INVOICE MODULE ----------
-def show_invoices_module(root, username=None, role=None):
-    clear_window(root)
+# SỬA 3: Thay đổi chữ ký hàm (bỏ role, thêm on_back_callback)
+def create_invoices_module(parent_frame, username, on_back_callback):
+    
+    # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
+    # clear_window(root)
     setup_styles()
-    root.title("Quản lý Hóa đơn")
-    root.configure(bg="#f5e6ca")
+    # root.title("Quản lý Hóa đơn")
+    # root.configure(bg="#f5e6ca")
+    # center_window(root, 1200, 700, offset_y=-60)
+    # root.minsize(1000, 550)
 
-    # ====== CẤU HÌNH FORM CHÍNH ======
-    center_window(root, 1200, 700, offset_y=-60)
-    root.minsize(1000, 550)
+    # SỬA 6: Tạo frame chính của module
+    module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
+    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
 
-    header = tk.Frame(root, bg="#4b2e05", height=70)
+    # SỬA 7: Gắn Header vào module_frame
+    header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="🧾 QUẢN LÝ HÓA ĐƠN", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(pady=12)
 
-    top = tk.Frame(root, bg="#f5e6ca")
+    # SỬA 8: Gắn Top frame vào module_frame
+    top = tk.Frame(module_frame, bg="#f5e6ca")
     top.pack(fill="x", pady=6, padx=12)
-
 
     search_var = tk.StringVar()
     ttk.Label(top, text="🔎 Tìm:", background="#f5e6ca").pack(side="left", padx=(0,6))
@@ -481,9 +491,9 @@ def show_invoices_module(root, username=None, role=None):
     status_label = ttk.Label(top, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f5e6ca", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-    # Treeview
+    # SỬA 9: Gắn Treeview vào module_frame
     cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "TrangThai", "GhiChu")
-    tree = ttk.Treeview(root, columns=cols, show="headings", height=16)
+    tree = ttk.Treeview(module_frame, columns=cols, show="headings", height=16)
     headers = {
         "MaHD": "Mã HD",
         "NgayLap": "Ngày lập",
@@ -545,32 +555,39 @@ def show_invoices_module(root, username=None, role=None):
         load_data(tree, status_label_var, search_var.get().strip())
 
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
-               command=refresh).pack(side="left", padx=5)
+             command=refresh).pack(side="left", padx=5)
 
-    # (Các lệnh gọi hàm giờ đây đã an toàn vì hàm được định nghĩa ở trên)
+    # SỬA 10: Truyền 'parent_frame' (cha của Toplevel) và 'username' (nghiệp vụ)
     ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
-               command=lambda: add_invoice(root, username, refresh)).pack(side="left", padx=6)
+             command=lambda: add_invoice(parent_frame, username, refresh)).pack(side="left", padx=6)
     
+    # SỬA 11: Xóa 'role' khỏi lệnh gọi (vì đã sửa hàm open_invoice_detail)
     ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: open_invoice_detail(tree, refresh, role)).pack(side="left", padx=6)
+             command=lambda: open_invoice_detail(tree, refresh)).pack(side="left", padx=6)
     
     ttk.Button(top, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
+             command=lambda: delete_invoice(tree, refresh)).pack(side="left", padx=6)
 
+    # SỬA 12: Sử dụng on_back_callback
     ttk.Button(top, text="⬅ Quay lại", style="Close.TButton",
-               command=lambda: go_back(root, username, role)).pack(side="right", padx=6)
+             command=on_back_callback).pack(side="right", padx=6)
 
     refresh()
 
     search_after = {"id": None}
     def on_search_change(event=None):
         if search_after["id"]:
-            root.after_cancel(search_after["id"])
-        search_after["id"] = root.after(250, refresh) 
+            # SỬA 13: Dùng parent_frame (hoặc module_frame) để gọi .after()
+            parent_frame.after_cancel(search_after["id"])
+        search_after["id"] = parent_frame.after(250, refresh) 
     entry_search.bind("<KeyRelease>", on_search_change)
 
     def on_double_click(event):
         sel = tree.selection()
         if sel:
-            open_invoice_detail(tree, refresh, role)
+            # SỬA 14: Xóa 'role' khỏi lệnh gọi
+            open_invoice_detail(tree, refresh)
     tree.bind("<Double-1>", on_double_click)
+    
+    # SỬA 15: Trả về frame chính của module
+    return module_frame

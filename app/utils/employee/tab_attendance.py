@@ -17,41 +17,92 @@ from app.utils.id_helpers import generate_next_macc
 from app.utils.treeview_helpers import fill_treeview_chunked
 
 # SỬA 1: Thay đổi tham số hàm
+# (Các import giữ nguyên)
+import tkinter as tk
+from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
+from datetime import datetime
+from app import db
+from app.theme import setup_styles
+from app.db import fetch_query, execute_query, execute_scalar
+from app.utils.treeview_helpers import fill_treeview_chunked
+# (Các hàm CRUD: add_attendance, edit_attendance, delete_attendance 
+#  được giả định là ở cuối file và không thay đổi)
+
+
 def build_tab(parent, on_back_callback=None):
     """Tab Chấm công — Đồng bộ layout giống tab_shift"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
 
-    # ===== THANH CÔNG CỤ (TOP FRAME) (Layout đã đồng bộ) =====
+    # ===== SỬA 1: TÁI CẤU TRÚC TOP_FRAME (DÙNG GRID) =====
     top_frame = tk.Frame(parent, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10) 
-
-    # --- Frame NÚT CHỨC NĂNG (Bên phải) ---
-    btn_frame = tk.Frame(top_frame, bg="#f9fafb")
-    btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
-    # --- Frame LỌC (Bên trái, tự mở rộng) ---
-    filter_frame = tk.Frame(top_frame, bg="#f9fafb")
-    filter_frame.pack(side="left", fill="x", expand=True) 
+    # Cấu hình Cột 0 (filter) co giãn, Cột 1 (button) cố định
+    top_frame.grid_columnconfigure(0, weight=1) 
 
+    # --- Frame NÚT CHỨC NĂNG (Bên phải - Cột 1) ---
+    btn_frame = tk.Frame(top_frame, bg="#f9fafb")
+    # Xóa .pack(), dùng .grid()
+    btn_frame.grid(row=0, column=1, sticky="ne", padx=(10, 0)) 
+    
+    # --- Frame LỌC (Bên trái, tự mở rộng - Cột 0) ---
+    filter_frame = tk.Frame(top_frame, bg="#f9fafb")
+    # Xóa .pack(), dùng .grid()
+    filter_frame.grid(row=0, column=0, sticky="nsew") 
+
+    # ===== SỬA 2: TÁI CẤU TRÚC FILTER_FRAME (DÙNG GRID) =====
+    
+    # --- Hàng 0: Các bộ lọc ---
     tk.Label(filter_frame, text="📅 Lọc theo ngày:", font=("Arial", 11),
-             bg="#f9fafb").pack(side="left", padx=(5, 2))
+             bg="#f9fafb").grid(row=0, column=0, padx=(5, 2), pady=5, sticky="w")
+    
     cal_filter = DateEntry(filter_frame, date_pattern="dd/mm/yyyy", font=("Arial", 11),
                            background="#3e2723", foreground="white", borderwidth=2,
                            width=12) 
-    cal_filter.pack(side="left", padx=5)
+    cal_filter.grid(row=0, column=1, padx=5, pady=5, sticky="w")
     cal_filter.set_date(datetime.now()) 
 
     tk.Label(filter_frame, text="🔎 Tìm nhân viên:", font=("Arial", 11),
-             bg="#f9fafb").pack(side="left", padx=(10, 2))
+             bg="#f9fafb").grid(row=0, column=2, padx=(10, 2), pady=5, sticky="w")
+    
     entry_search = ttk.Entry(filter_frame, width=30) 
-    entry_search.pack(side="left", padx=5, fill="x", expand=True) 
+    entry_search.grid(row=0, column=3, padx=5, pady=5, sticky="ew") 
+    
+    # Cấu hình cột tìm kiếm (cột 3) co giãn
+    filter_frame.grid_columnconfigure(3, weight=1) 
 
+    # --- Hàng 1: Nhãn Trạng thái ---
     status_label_var = tk.StringVar(value="")
-    status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
-    status_label.pack(side="left", padx=10)
+    status_label = ttk.Label(filter_frame, textvariable=status_label_var, 
+                             font=("Arial", 10, "italic"), background="#f9fafb", 
+                             foreground="blue")
+    # Đặt ở Hàng 1, kéo dài 4 cột
+    status_label.grid(row=1, column=0, columnspan=4, padx=5, pady=(0, 5), sticky="w")
 
-    # ===== TREEVIEW =====
+
+    # ===== SỬA 3: TÁI CẤU TRÚC BTN_FRAME (DÙNG GRID) =====
+    # (Giúp các nút không bị xô lệch khi resize)
+    
+    ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
+               command=lambda: refresh_data()).grid(row=0, column=0, padx=5)
+    
+    ttk.Button(btn_frame, text="➕ Chấm công", style="Add.TButton",
+               command=lambda: add_attendance(refresh_data, cal_filter.get_date())).grid(row=0, column=1, padx=5)
+    
+    ttk.Button(btn_frame, text="✏️ Sửa", style="Edit.TButton",
+               command=lambda: edit_attendance(tree, refresh_data)).grid(row=0, column=2, padx=5)
+    
+    ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
+               command=lambda: delete_attendance(tree, refresh_data)).grid(row=0, column=3, padx=5)
+    
+    if on_back_callback:
+        ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton", # Đã sửa tên nút cho ngắn gọn
+                   command=on_back_callback).grid(row=0, column=4, padx=5)
+
+
+    # ===== TREEVIEW (Không thay đổi) =====
     tree_frame = tk.Frame(parent, bg="#f5e6ca")
     tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
     
@@ -73,7 +124,7 @@ def build_tab(parent, on_back_callback=None):
     tree.column("GhiChu", width=200, anchor="center") 
     tree.pack(fill="both", expand=True)
 
-    # ===== HÀM LOAD DATA (Đã chuẩn hóa) =====
+    # ===== HÀM LOAD DATA (Không thay đổi) =====
     def load_data(tree_widget, status_var, filter_date, filter_keyword):
         status_var.set("Đang tải dữ liệu...")
         tree_widget.update_idletasks() 
@@ -92,6 +143,7 @@ def build_tab(parent, on_back_callback=None):
             query += " AND cc.NgayLam = ? "
             params.append(date_obj)
         except Exception: pass 
+        
         if filter_keyword:
             kw = f"%{filter_keyword.strip()}%"
             query += " AND (cc.MaNV LIKE ? OR nv.HoTen LIKE ?) "
@@ -121,31 +173,18 @@ def build_tab(parent, on_back_callback=None):
             status_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu chấm công: {e}")
 
-    # ===== CÁC NÚT CHỨC NĂNG (trong btn_frame) =====
+    # ===== CÁC HÀM TIỆN ÍCH (Không thay đổi) =====
     def refresh_data():
-        filter_date = cal_filter.get()
+        filter_date = cal_filter.get() # Lấy giá trị ngày (dạng chuỗi 'dd/mm/yyyy')
         filter_keyword = entry_search.get().strip()
-        load_data(tree, status_label_var, filter_date, filter_keyword)
+        # Hàm load_data sẽ tự lấy cal_filter.get_date() (dạng object)
+        load_data(tree, status_label_var, filter_date, filter_keyword) 
 
-    ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
-               command=refresh_data).pack(side="left", padx=5)
-    ttk.Button(btn_frame, text="➕ Chấm công", style="Add.TButton",
-               command=lambda: add_attendance(refresh_data, cal_filter.get_date())).pack(side="left", padx=5)
-    ttk.Button(btn_frame, text="✏️ Sửa", style="Edit.TButton",
-               command=lambda: edit_attendance(tree, refresh_data)).pack(side="left", padx=5)
-    ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
-               command=lambda: delete_attendance(tree, refresh_data)).pack(side="left", padx=5)
-    
-    # SỬA 2: Sửa nút "Quay lại"
-    if on_back_callback:
-        ttk.Button(btn_frame, text="⬅ Quay lại Dashboard", style="Close.TButton",
-                   command=on_back_callback).pack(side="left", padx=5)
-
-    # ===== SỰ KIỆN TÌM KIẾM REALTIME =====
+    # ===== SỰ KIỆN TÌM KIẾM REALTIME (Không thay đổi) =====
     cal_filter.bind("<<DateEntrySelected>>", lambda e: refresh_data())
     entry_search.bind("<KeyRelease>", lambda e: refresh_data())
 
-    # ===== DOUBLE CLICK TO EDIT =====
+    # ===== DOUBLE CLICK TO EDIT (Không thay đổi) =====
     def on_double_click(_):
         sel = tree.selection()
         if sel:
@@ -154,7 +193,6 @@ def build_tab(parent, on_back_callback=None):
     
     # Tải lần đầu
     refresh_data()
-
 # ==============================================================
 #  HÀM CRUD (Giữ nguyên logic, không thay đổi)
 # ==============================================================

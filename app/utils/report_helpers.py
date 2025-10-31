@@ -24,6 +24,23 @@ def get_kpi_data(start_date: datetime, end_date: datetime) -> dict:
     
     return result[0] # fetch_query trả về list[dict], ta lấy phần tử đầu tiên
 
+def get_daily_revenue_data(start_date: datetime, end_date: datetime) -> list[dict]:
+    """
+    Lấy doanh thu theo từng ngày (để vẽ biểu đồ đường).
+    Trả về list[dict] gồm 'Ngay' và 'DoanhThuNgay'.
+    """
+    query = """
+        SELECT
+            CAST(NgayLap AS DATE) AS Ngay,
+            SUM(TongTien) AS DoanhThuNgay
+        FROM HoaDon
+        WHERE TrangThai = N'Đã thanh toán'
+          AND NgayLap >= ? AND NgayLap < ?
+        GROUP BY CAST(NgayLap AS DATE)
+        ORDER BY Ngay
+    """
+    return db.fetch_query(query, (start_date, end_date))
+
 def get_top_products_data(start_date: datetime, end_date: datetime) -> list[dict]:
     """
     Lấy Top 10 sản phẩm bán chạy nhất.
@@ -43,33 +60,48 @@ def get_top_products_data(start_date: datetime, end_date: datetime) -> list[dict
     """
     return db.fetch_query(query, (start_date, end_date))
 
-def get_salary_report_data(month: int, year: int) -> list[dict]:
-    """
-    Lấy toàn bộ dữ liệu Bảng Lương (đã JOIN) THEO THÁNG/NĂM.
-    Trả về list[dict].
-    """
-    query = """
-        SELECT BL.MaLuong, NV.HoTen, BL.Thang, BL.Nam, BL.TongGio, BL.LuongThucTe, BL.TrangThai
-        FROM BangLuong BL
-        JOIN NhanVien NV ON BL.MaNV = NV.MaNV
-        WHERE bl.Thang = ? AND bl.Nam = ?
-        ORDER BY BL.Nam DESC, BL.Thang DESC
-    """
-    return db.fetch_query(query, (month, year))
+# =========================================================
+# SỬA 1: THÊM CÁC HÀM HELPER MỚI CHO BÁO CÁO LƯƠNG
+# =========================================================
 
-def get_daily_revenue_data(start_date: datetime, end_date: datetime) -> list[dict]:
+def get_salary_kpi_data(month: int, year: int) -> dict:
     """
-    Lấy doanh thu theo từng ngày (để vẽ biểu đồ đường).
-    Trả về list[dict] gồm 'Ngay' và 'DoanhThuNgay'.
+    Lấy dữ liệu KPI Lương (Tổng chi, Tổng giờ) theo Tháng/Năm.
     """
     query = """
         SELECT
-            CAST(NgayLap AS DATE) AS Ngay,
-            SUM(TongTien) AS DoanhThuNgay
-        FROM HoaDon
-        WHERE TrangThai = N'Đã thanh toán'
-          AND NgayLap >= ? AND NgayLap < ?
-        GROUP BY CAST(NgayLap AS DATE)
-        ORDER BY Ngay
+            ISNULL(SUM(CASE WHEN TrangThai = N'Đã trả' THEN LuongThucTe ELSE 0 END), 0) AS TongLuongDaTra,
+            ISNULL(SUM(TongGio), 0) AS TongGioLam
+        FROM BangLuong
+        WHERE Thang = ? AND Nam = ?
     """
-    return db.fetch_query(query, (start_date, end_date))
+    result = db.fetch_query(query, (month, year))
+    
+    if not result:
+        return {"TongLuongDaTra": 0, "TongGioLam": 0, "LuongTBGio": 0}
+    
+    kpi_data = result[0]
+    
+    # Tính KPI thứ 3 (Lương TB/Giờ)
+    if kpi_data["TongGioLam"] > 0:
+        kpi_data["LuongTBGio"] = kpi_data["TongLuongDaTra"] / kpi_data["TongGioLam"]
+    else:
+        kpi_data["LuongTBGio"] = 0
+        
+    return kpi_data
+
+def get_salary_pie_chart_data(month: int, year: int) -> list[dict]:
+    """
+    Lấy dữ liệu phân bổ lương theo Chức vụ (cho biểu đồ tròn).
+    """
+    query = """
+        SELECT
+            nv.ChucVu,
+            ISNULL(SUM(bl.LuongThucTe), 0) AS LuongTheoChucVu
+        FROM BangLuong bl
+        JOIN NhanVien nv ON bl.MaNV = nv.MaNV
+        WHERE bl.Thang = ? AND bl.Nam = ?
+        GROUP BY nv.ChucVu
+        HAVING SUM(bl.LuongThucTe) > 0 -- Chỉ lấy các nhóm có lương
+    """
+    return db.fetch_query(query, (month, year))

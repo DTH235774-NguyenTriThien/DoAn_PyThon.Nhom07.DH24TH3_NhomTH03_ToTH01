@@ -131,3 +131,25 @@ def generate_next_maca(cursor):
     except Exception as e:
         print(f"[generate_next_maca] Lỗi: {e}")
         return 1
+    
+def generate_next_manl(cursor):
+    """
+    Sinh mã MaNL dạng NL001, NL002... dựa trên MaNL hiện có.
+    """
+    try:
+        cursor.execute("SELECT MaNL FROM NguyenLieu")
+        rows = [r.MaNL.strip().upper() for r in cursor.fetchall() if r.MaNL]
+        nums = []
+        for code in rows:
+            if code.startswith("NL"):
+                try:
+                    nums.append(int(code[2:]))
+                except Exception:
+                    pass
+        next_num = 1
+        while next_num in nums:
+            next_num += 1
+        return f"NL{next_num:03d}"
+    except Exception as e:
+        print(f"[generate_next_manl] Lỗi: {e}")
+        return "NL001"

@@ -75,7 +75,7 @@ def setup_styles():
                     focusthickness=0, 
                     focuscolor="none",
                     relief="flat",
-                    anchor="w", # Căn trái chữ
+                    anchor="center", # Căn trái chữ
                     padding=[20, 10, 20, 10]) # Padding (left, top, right, bottom)
     
     style.map("Sidebar.TButton", 
@@ -93,6 +93,8 @@ def setup_styles():
     style.map("Logout.TButton", 
               background=[('active', COLOR_DANGER_HOVER)],
               foreground=[('active', COLOR_TEXT_LIGHT)])
+    
+
 
     # --- Style cho Báo cáo (KPI Cards) ---
     style.configure("KPI.TFrame", background="#f9fafb", relief="solid", borderwidth=1)

@@ -43,15 +43,33 @@ def get_top_products_data(start_date: datetime, end_date: datetime) -> list[dict
     """
     return db.fetch_query(query, (start_date, end_date))
 
-def get_salary_report_data() -> list[dict]:
+def get_salary_report_data(month: int, year: int) -> list[dict]:
     """
-    Lấy toàn bộ dữ liệu Bảng Lương (đã JOIN).
+    Lấy toàn bộ dữ liệu Bảng Lương (đã JOIN) THEO THÁNG/NĂM.
     Trả về list[dict].
     """
     query = """
         SELECT BL.MaLuong, NV.HoTen, BL.Thang, BL.Nam, BL.TongGio, BL.LuongThucTe, BL.TrangThai
         FROM BangLuong BL
         JOIN NhanVien NV ON BL.MaNV = NV.MaNV
+        WHERE bl.Thang = ? AND bl.Nam = ?
         ORDER BY BL.Nam DESC, BL.Thang DESC
     """
-    return db.fetch_query(query)
+    return db.fetch_query(query, (month, year))
+
+def get_daily_revenue_data(start_date: datetime, end_date: datetime) -> list[dict]:
+    """
+    Lấy doanh thu theo từng ngày (để vẽ biểu đồ đường).
+    Trả về list[dict] gồm 'Ngay' và 'DoanhThuNgay'.
+    """
+    query = """
+        SELECT
+            CAST(NgayLap AS DATE) AS Ngay,
+            SUM(TongTien) AS DoanhThuNgay
+        FROM HoaDon
+        WHERE TrangThai = N'Đã thanh toán'
+          AND NgayLap >= ? AND NgayLap < ?
+        GROUP BY CAST(NgayLap AS DATE)
+        ORDER BY Ngay
+    """
+    return db.fetch_query(query, (start_date, end_date))

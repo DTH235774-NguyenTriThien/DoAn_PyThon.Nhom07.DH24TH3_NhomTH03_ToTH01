@@ -179,7 +179,19 @@ def calculate_or_update_salary(refresh_func):
                       AND ClockIn IS NOT NULL AND ClockOut IS NOT NULL
             """
             tong_gio = db.execute_scalar(sum_query, (manv, thang, nam)) or 0.0 
-            luong_thuc_te = float(luongcb or 0) * (float(tong_gio) / 208.0) 
+            
+            # =========================================================
+            # SỬA LỖI LOGIC TÍNH LƯƠNG TẠI ĐÂY
+            # (Giả định LuongCoBan là LƯƠNG THEO GIỜ)
+            # =========================================================
+            
+            # Code CŨ (SAI):
+            # luong_thuc_te = float(luongcb or 0) * (float(tong_gio) / 208.0) 
+            
+            # Code MỚI (ĐÚNG):
+            luong_thuc_te = float(luongcb or 0) * float(tong_gio)
+            
+            # =========================================================
 
             # 2. Kiểm tra bản ghi hiện có
             check_query = "SELECT MaLuong, TrangThai FROM BangLuong WHERE MaNV=? AND Thang=? AND Nam=?"
@@ -187,7 +199,7 @@ def calculate_or_update_salary(refresh_func):
 
             if existing_record:
                 # ĐÃ TỒN TẠI -> Cân nhắc UPDATE
-                current_status = existing_record[0]["TrangThai"] 
+                current_status = existing_record[0]["TrangThai"]
                 maluong = existing_record[0]["MaLuong"]
                 
                 if current_status == 'Chưa trả':

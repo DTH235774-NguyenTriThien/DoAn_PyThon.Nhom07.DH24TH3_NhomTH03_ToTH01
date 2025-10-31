@@ -193,8 +193,10 @@ def add_ingredient(refresh_func):
             refresh_func()
             win.destroy()
         
-    ttk.Button(form, text="💾 Lưu", style="Add.TButton", command=submit)\
-        .grid(row=3, column=0, columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: submit()).pack(ipadx=10, ipady=6)
 
 # --- HÀM EDIT_INGREDIENT (Giữ nguyên) ---
 def edit_ingredient(tree, refresh_func):
@@ -234,7 +236,7 @@ def edit_ingredient(tree, refresh_func):
     cb_tennl.bind("<KeyRelease>", on_name_change)
     cb_tennl.bind("<<ComboboxSelected>>", on_name_change)
 
-    def submit():
+    def save():
         tennl = cb_tennl.get().strip() 
         donvi = cb_donvi.get().strip() 
         if not tennl or not donvi:
@@ -246,8 +248,10 @@ def edit_ingredient(tree, refresh_func):
             refresh_func()
             win.destroy()
         
-    ttk.Button(form, text="💾 Cập nhật", style="Add.TButton", command=submit)\
-        .grid(row=2, column=0, columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
+               command=lambda: save()).pack(ipadx=10, ipady=6)
 
 # --- HÀM RESTOCK_INGREDIENT (Giữ nguyên) ---
 def restock_ingredient(tree, refresh_func):

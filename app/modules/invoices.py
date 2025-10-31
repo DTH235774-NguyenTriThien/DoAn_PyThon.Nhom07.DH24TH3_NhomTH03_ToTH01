@@ -22,22 +22,15 @@ from app.utils.treeview_helpers import fill_treeview_chunked
 # =========================================================
 
 # ---------- UPDATE CUSTOMER POINTS (HELPER) ----------
-def update_customer_points(mahd):
+def update_customer_points(makh, tongtien):
     """
-    Cập nhật điểm tích lũy cho khách hàng DỰA TRÊN HÓA ĐƠN.
-    Chỉ cộng điểm nếu hóa đơn 'Đã thanh toán'.
+    Cập nhật điểm tích lũy cho khách hàng.
+    Hàm này CHỈ NÊN được gọi SAU KHI thanh toán thành công.
     """
     try:
-        record = db.fetch_query("SELECT MaKH, TongTien, TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
-        if not record:
-            return 
-        
-        row = record[0]
-        
-        if row["MaKH"] and row["TrangThai"] == 'Đã thanh toán':
-            makh = row["MaKH"]
-            tongtien = row["TongTien"] or 0
-            diem_cong = int(tongtien // 10000)
+        # Chúng ta đã biết hóa đơn 'Đã thanh toán' và có MaKH
+        if makh and tongtien > 0:
+            diem_cong = int(float(tongtien) // 10000)
             
             if diem_cong > 0:
                 query = "UPDATE KhachHang SET DiemTichLuy = DiemTichLuy + ? WHERE MaKH = ?"
@@ -45,8 +38,6 @@ def update_customer_points(mahd):
                 
     except Exception as e:
         print(f"Lỗi cập nhật điểm khách hàng: {e}")
-        # Không hiển thị messagebox lỗi ở đây để tránh làm phiền khi thêm/sửa CTHD
-
 # ---------- INVOICE DETAIL WINDOW (CỬA SỔ CON) ----------
 def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='Chưa thanh toán'):
     """
@@ -159,7 +150,6 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
 
             if db.execute_query(query, params):
                 total = recalc_invoice_total(db.cursor, db.conn, mahd)
-                # update_customer_points(mahd) # Xóa ở đây
                 
                 load_items() 
                 parent_refresh() 
@@ -251,22 +241,53 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
     btn_delete.pack(fill="x", pady=4)
 
     # Hàm xử lý thanh toán
+    # Hàm xử lý thanh toán (ĐÃ SỬA LỖI)
     def perform_payment():
-        if messagebox.askyesno("Xác nhận Thanh toán", f"Xác nhận thanh toán hóa đơn {mahd}?"):
-            if db.execute_query("UPDATE HoaDon SET TrangThai = N'Đã thanh toán' WHERE MaHD = ?", (mahd,)):
-                # GỌI HÀM CỘNG ĐIỂM (1 LẦN DUY NHẤT)
-                update_customer_points(mahd)
-                
-                messagebox.showinfo("Thành công", "Hóa đơn đã được thanh toán.", parent=win)
-                parent_refresh() 
-                
-                # Tắt các nút
+        try:
+            # SỬA 1: LẤY dữ liệu hóa đơn TRƯỚC TIÊN
+            record = db.fetch_query("SELECT MaKH, TongTien, TrangThai FROM HoaDon WHERE MaHD=?", (mahd,))
+            if not record:
+                messagebox.showerror("Lỗi", "Không tìm thấy hóa đơn.", parent=win)
+                return
+
+            row = record[0]
+            current_status = row["TrangThai"]
+            makh_to_update = row["MaKH"]
+            tongtien_to_update = row["TongTien"] or 0
+
+            # SỬA 2: KIỂM TRA LỖI CỘNG ĐIỂM NHIỀU LẦN
+            if current_status == 'Đã thanh toán':
+                messagebox.showinfo("Thông báo", "Hóa đơn này đã được thanh toán trước đó.", parent=win)
+                # (Vẫn nên vô hiệu hóa nút nếu lỡ bật)
                 btn_add.config(state="disabled")
                 btn_edit.config(state="disabled")
                 btn_delete.config(state="disabled")
                 btn_thanh_toan.config(state="disabled")
-            else:
-                messagebox.showerror("Lỗi", "Không thể cập nhật trạng thái hóa đơn.", parent=win)
+                return
+
+            # SỬA 3: HỎI XÁC NHẬN (logic cũ)
+            if messagebox.askyesno("Xác nhận Thanh toán", f"Xác nhận thanh toán hóa đơn {mahd}?"):
+                
+                # SỬA 4: CẬP NHẬT TRẠNG THÁI HÓA ĐƠN
+                if db.execute_query("UPDATE HoaDon SET TrangThai = N'Đã thanh toán' WHERE MaHD = ?", (mahd,)):
+                    
+                    # SỬA 5: GỌI HÀM CỘNG ĐIỂM MỚI (TRUYỀN DỮ LIỆU ĐÃ LẤY)
+                    # Điều này giải quyết Lỗi Transaction (Lỗi 2)
+                    update_customer_points(makh_to_update, tongtien_to_update)
+                    
+                    messagebox.showinfo("Thành công", "Hóa đơn đã được thanh toán.", parent=win)
+                    parent_refresh() 
+                    
+                    # Tắt các nút
+                    btn_add.config(state="disabled")
+                    btn_edit.config(state="disabled")
+                    btn_delete.config(state="disabled")
+                    btn_thanh_toan.config(state="disabled")
+                else:
+                    messagebox.showerror("Lỗi", "Không thể cập nhật trạng thái hóa đơn.", parent=win)
+                
+        except Exception as e:
+            messagebox.showerror("Lỗi nghiêm trọng", f"Đã xảy ra lỗi khi thanh toán: {e}", parent=win)
 
     # Nút Thanh toán
     btn_thanh_toan = ttk.Button(btnf, text="💳 Thanh toán", style="Add.TButton", command=perform_payment)

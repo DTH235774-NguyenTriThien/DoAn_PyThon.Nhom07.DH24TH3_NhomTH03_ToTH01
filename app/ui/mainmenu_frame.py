@@ -146,5 +146,5 @@ def from_app_open_customers(root):
     show_customers_module(root)
 
 def from_app_open_reports(root):
-    from app.modules.reports import show_statistics_module
-    show_statistics_module(root)
+    from app.modules.reports import show_reports_module
+    show_reports_module(root)

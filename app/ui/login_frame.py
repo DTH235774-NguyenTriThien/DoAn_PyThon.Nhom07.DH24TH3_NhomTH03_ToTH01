@@ -86,7 +86,7 @@ def show_login(root):
             SELECT tk.TenDangNhap, tk.MatKhauHash, nv.HoTen, tk.Role
             FROM TaiKhoan tk
             LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
-            WHERE tk.TenDangNhap = ?
+            WHERE tk.TenDangNhap = ? AND (nv.MaNV IS NULL OR nv.TrangThai != N'Đã nghỉ')
         """
         
         results = fetch_query(query, (user,))

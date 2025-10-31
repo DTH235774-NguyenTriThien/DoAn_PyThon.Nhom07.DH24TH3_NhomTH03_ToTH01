@@ -30,14 +30,16 @@ def main():
         try:
             # 1. Đóng kết nối CSDL
             if db and db.conn:
-                db.close_connection()
+                # SỬA LỖI: Gọi đúng tên hàm (thêm '_db')
+                db.close_db_connection() 
                 
             # 2. Đóng tất cả biểu đồ matplotlib
             if MATPLOTLIB_AVAILABLE:
                 plt.close('all')
                 
         except Exception as e:
-            return
+            # (Xóa 'return' để đảm bảo finally luôn chạy)
+            print(f"Lỗi khi đóng tài nguyên: {e}") 
         finally:
             # 3. Phá hủy cửa sổ root (thoát ứng dụng)
             root.destroy()
@@ -46,7 +48,8 @@ def main():
     root.protocol("WM_DELETE_WINDOW", on_closing)
     # =========================================================
     
-    show_login(root)
+    # Truyền hàm 'on_closing' vào login_frame
+    show_login(root, on_exit_callback=on_closing)
     root.mainloop()
 
 if __name__ == "__main__":

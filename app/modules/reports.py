@@ -31,7 +31,7 @@ except ImportError:
 
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-def show_reports_module(root, username=None, role=None):
+def show_reports_module(root, username=None, role=None, on_exit_callback=None):
     """Giao diện chính cho Module Báo cáo & Thống kê"""
     clear_window(root)
     setup_styles()
@@ -60,7 +60,7 @@ def show_reports_module(root, username=None, role=None):
     btn_generate.pack(side="left", padx=5)
     
     btn_back = ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
-                          command=lambda: go_back(root, username, role))
+                          command=lambda: go_back(root, username, role, on_exit_callback))
     btn_back.pack(side="left", padx=5)
 
     # =========================================================

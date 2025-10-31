@@ -84,7 +84,7 @@ def build_account_tab(parent, status_label_var):
 
     # --- Frame Nút (Bên phải) ---
     btn_frame = tk.Frame(top_frame, bg="#f9fafb")
-    btn_frame.pack(side="right", anchor="n", padx=(10, 0))
+    btn_frame.pack(side="right", anchor="center", padx=(10, 0))
     
     ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
              command=lambda: refresh_data()).pack(side="left", padx=5)
@@ -124,7 +124,7 @@ def build_account_tab(parent, status_label_var):
     tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
     for col, text in headers.items():
         tree.heading(col, text=text)
-        tree.column(col, anchor="w", width=150)
+        tree.column(col, anchor="center", width=150)
     tree.column("MaNV", anchor="center", width=100) 
     tree.column("Role", anchor="center", width=120) 
     tree.pack(fill="both", expand=True)

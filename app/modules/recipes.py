@@ -126,7 +126,7 @@ def create_recipes_module(parent_frame, on_back_callback):
               background="#f9fafb", foreground="blue").pack(anchor="w", padx=10)
     tree_products = ttk.Treeview(left_panel, columns=("MaSP", "TenSP", "DonGia"), show="headings", height=20)
     tree_products.heading("MaSP", text="Mã SP"); tree_products.heading("TenSP", text="Tên Sản Phẩm"); tree_products.heading("DonGia", text="Đơn giá")
-    tree_products.column("MaSP", width=80, anchor="center"); tree_products.column("TenSP", width=250, anchor="w"); tree_products.column("DonGia", width=100, anchor="e")
+    tree_products.column("MaSP", width=80, anchor="center"); tree_products.column("TenSP", width=250, anchor="center"); tree_products.column("DonGia", width=100, anchor="center")
     tree_products.pack(fill="both", expand=True, padx=10, pady=10)
     
     # --- KHUNG BÊN PHẢI (CÔNG THỨC CHI TIẾT) ---
@@ -140,7 +140,7 @@ def create_recipes_module(parent_frame, on_back_callback):
               background="#f9fafb", foreground="blue").pack(anchor="w", padx=10)
     tree_recipe = ttk.Treeview(right_panel, columns=("MaNL", "TenNL", "SoLuong", "DonVi"), show="headings", height=15)
     tree_recipe.heading("MaNL", text="Mã NL"); tree_recipe.heading("TenNL", text="Tên Nguyên Liệu"); tree_recipe.heading("SoLuong", text="Số lượng"); tree_recipe.heading("DonVi", text="Đơn vị")
-    tree_recipe.column("MaNL", width=80, anchor="center"); tree_recipe.column("TenNL", width=200, anchor="w"); tree_recipe.column("SoLuong", width=80, anchor="e"); tree_recipe.column("DonVi", width=80, anchor="center")
+    tree_recipe.column("MaNL", width=80, anchor="center"); tree_recipe.column("TenNL", width=200, anchor="center"); tree_recipe.column("SoLuong", width=80, anchor="center"); tree_recipe.column("DonVi", width=80, anchor="center")
     tree_recipe.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
     # --- Khung Thêm/Xóa Nguyên liệu (Cải tiến 2) ---

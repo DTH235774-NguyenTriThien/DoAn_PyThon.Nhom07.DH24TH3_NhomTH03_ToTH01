@@ -105,7 +105,7 @@ def create_ingredients_module(parent_frame, on_back_callback):
     for col, text in headers.items():
         tree.heading(col, text=text)
         tree.column(col, anchor="center", width=150)
-    tree.column("TenNL", anchor="w", width=300) 
+    tree.column("TenNL", anchor="center", width=300) 
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
     # ===== HÀM TẢI DỮ LIỆU (Giữ nguyên) =====

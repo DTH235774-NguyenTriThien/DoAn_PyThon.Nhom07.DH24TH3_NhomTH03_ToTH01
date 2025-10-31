@@ -7,56 +7,58 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 try:
-    from app.db import fetch_query, execute_query
+    from app.db import fetch_query, execute_query, conn
 except ImportError:
     print("LỖI: Không thể import 'app.db'.")
     print("Hãy đảm bảo bạn chạy script này từ thư mục gốc (Doan_Python), không phải từ 'scripts/'")
     sys.exit(1)
 
-def migrate():
-    """
-    Nâng cấp tất cả mật khẩu trong bảng TaiKhoan sang Bcrypt.
-    Mật khẩu mặc định cho tất cả sẽ là '123'.
-    """
+PASSWORD_TO_SET = '123'
 
-    PASSWORD_TO_SET = '123'
-    print(f"Bắt đầu nâng cấp mật khẩu sang Bcrypt (Mật khẩu mới: '{PASSWORD_TO_SET}')...")
+def generate_hash(password):
+    pw_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_pw = bcrypt.hashpw(pw_bytes, salt)
+    return hashed_pw.decode('utf-8')
+
+def seed_accounts():
+    """
+    Xóa sạch và tạo lại 4 tài khoản mẫu với mật khẩu '123' (bcrypt).
+    """
+    print(f"Bắt đầu làm sạch và tạo tài khoản (Mật khẩu: '{PASSWORD_TO_SET}')...")
 
     try:
-        # 1. Lấy tất cả user
-        users = fetch_query("SELECT TenDangNhap FROM TaiKhoan")
-        if not users:
-            print("Không tìm thấy tài khoản nào trong CSDL.")
-            return
+        # 1. Xóa tất cả tài khoản cũ
+        execute_query("DELETE FROM TaiKhoan")
+        print("Đã xóa tài khoản cũ...")
 
-        print(f"Tìm thấy {len(users)} tài khoản. Đang xử lý...")
-
-        # 2. Chuyển đổi mật khẩu
-        pw_bytes = PASSWORD_TO_SET.encode('utf-8')
+        # 2. Định nghĩa tài khoản
+        accounts = [
+            ('admin', 'Admin', 'NV001'),
+            ('nv002', 'Cashier', 'NV002'),
+            ('nv004', 'Barista', 'NV004'),
+            ('nv005', 'Cashier', 'NV005')
+        ]
 
         count_success = 0
-        for user in users:
-            username = user["TenDangNhap"]
+        for (user, role, manv) in accounts:
+            hashed_string = generate_hash(PASSWORD_TO_SET)
 
-            # 3. Tạo hash Bcrypt mới (đã bao gồm salt)
-            salt = bcrypt.gensalt()
-            hashed_pw = bcrypt.hashpw(pw_bytes, salt)
-            hashed_string = hashed_pw.decode('utf-8')
-
-            # 4. Cập nhật vào CSDL
-            query = "UPDATE TaiKhoan SET MatKhauHash = ? WHERE TenDangNhap = ?"
-            if execute_query(query, (hashed_string, username)):
-                print(f"  [THÀNH CÔNG] Đã nâng cấp tài khoản: {username}")
+            query = "INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, Role, MaNV) VALUES (?, ?, ?, ?)"
+            if execute_query(query, (user, hashed_string, role, manv)):
+                print(f"  [THÀNH CÔNG] Đã tạo tài khoản: {user}")
                 count_success += 1
             else:
-                print(f"  [THẤT BẠI] Không thể nâng cấp: {username}")
+                print(f"  [THẤT BẠI] Không thể tạo: {user}")
 
-        print(f"\nHoàn tất! Đã nâng cấp thành công {count_success}/{len(users)} tài khoản.")
-        print("Bạn có thể đăng nhập bằng mật khẩu '123' ngay bây giờ.")
+        print(f"\nHoàn tất! Đã tạo thành công {count_success}/{len(accounts)} tài khoản.")
 
     except Exception as e:
         print(f"\nĐÃ XẢY RA LỖI NGHIÊM TRỌNG: {e}")
-        print("Quá trình nâng cấp có thể đã thất bại. Vui lòng kiểm tra CSDL.")
+        if "FOREIGN KEY constraint" in str(e):
+            print("Lỗi Khóa Ngoại: Hãy đảm bảo bạn đã chạy script SQL để tạo NhanVien (NV001-NV005) trước.")
 
 if __name__ == "__main__":
-    migrate()
+    seed_accounts()
+    if conn:
+        conn.close() # Đóng kết nối sau khi chạy

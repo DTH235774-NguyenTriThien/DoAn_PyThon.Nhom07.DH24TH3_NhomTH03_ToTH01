@@ -154,3 +154,13 @@ def close_connection():
             conn.close()
     except Exception:
         pass
+
+def close_db_connection():
+    global conn, cursor
+    if cursor:
+        cursor.close()
+        cursor = None
+    if conn:
+        conn.close()
+        conn = None
+    print("Đã đóng kết nối CSDL.") # Có thể bỏ ghi chú để debug

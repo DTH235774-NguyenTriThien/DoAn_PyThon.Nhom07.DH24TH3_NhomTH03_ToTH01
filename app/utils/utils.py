@@ -31,13 +31,13 @@ def create_form_window(title, size="430x500", bg="#f8f9fa"):
 
     return win, form
 
-def go_back(root, username=None, role=None):
+def go_back(root, username=None, role=None, on_exit_callback=None):
     """
     Quay lại menu chính — dùng chung cho mọi module.
     """
-    # Import cục bộ để tránh lỗi circular import
     from app.ui.mainmenu_frame import show_main_menu
-    show_main_menu(root, username, role)
+    # Truyền tất cả 4 đối số
+    show_main_menu(root, username, role, on_exit_callback)
 
 def center_window(win, width, height, offset_y=-30):
     """Canh giữa màn hình cho một cửa sổ Tkinter"""

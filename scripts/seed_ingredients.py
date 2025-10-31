@@ -2,85 +2,111 @@
 import sys
 import os
 
-# --- Thêm thư mục gốc vào system path để import các module của app ---
+# --- Thêm thư mục gốc vào system path ---
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 try:
-    # Import các helper CSDL và ID
     from app.db import execute_query, execute_scalar, conn, cursor
     from app.utils.id_helpers import generate_next_manl
 except ImportError as e:
     print(f"LỖI: Không thể import 'app.db' hoặc 'id_helpers'. Lỗi: {e}")
-    print("Hãy đảm bảo bạn chạy script này từ thư mục gốc (Doan_Python), không phải từ 'scripts/'")
     sys.exit(1)
 
 # =========================================================
-# SAO CHÉP TỪ ĐIỂN TỪ MODULE INGREDIENTS
-# (Để script này có thể chạy độc lập mà không cần import UI)
+# SỬA 1: TÁCH LÀM 2 MAP VÀ CHUẨN HÓA ĐƠN VỊ
 # =========================================================
-INGREDIENT_MAP = {
+
+# MAP 1: THỰC PHẨM (Dùng cho Công thức)
+# (Đã chuẩn hóa về 'g' và 'ml')
+FOOD_MAP = {
     # Cà phê
-    "Cà phê hạt": "kg", "Cà phê bột": "kg", "Cà phê (phin giấy)": "gói",
+    "Cà phê hạt": "g",
+    "Cà phê bột": "g",
     # Sữa
-    "Sữa đặc": "lon", "Sữa tươi": "l", "Sữa (ml)": "ml", "Kem béo (Rich)": "l",
-    "Kem (Whipping Cream)": "l", "Sữa chua": "kg", "Đường cát": "kg",
+    "Sữa đặc": "ml",
+    "Sữa tươi": "ml",
+    "Kem béo (Rich)": "ml",
+    "Kem (Whipping Cream)": "ml",
+    "Sữa chua": "g",
     # Đường / Siro
-    "Đường nước": "ml", "Đường phèn": "kg", "Siro Caramel": "ml", "Siro Vani": "ml",
-    "Siro Bạc hà": "ml", "Siro Dâu": "ml", "Mật ong": "ml", "Sốt Chocolate": "kg",
+    "Đường cát": "g",
+    "Đường nước": "ml",
+    "Siro Caramel": "ml",
+    "Siro Vani": "ml",
+    "Siro Bạc hà": "ml",
+    "Siro Dâu": "ml",
+    "Mật ong": "ml",
+    "Sốt Chocolate": "g",
     # Trà
-    "Trà đen": "kg", "Trà lài": "kg", "Trà ô long": "kg", "Trà túi lọc": "gói",
-    "Bột Matcha": "g", "Bột Cacao": "g", "Bột Frappe (Base)": "kg", 
+    "Trà đen": "g",
+    "Trà lài": "g",
+    "Trà ô long": "g",
+    "Bột Matcha": "g",
+    "Bột Cacao": "g",
+    "Bột Frappe (Base)": "g",
     # Trái cây
-    "Cam": "kg", "Chanh": "kg", "Dâu tây": "kg", "Đào (ngâm)": "hộp", 
-    "Vải (ngâm)": "hộp", "Bơ": "kg", "Xoài": "kg",
+    "Cam": "quả",
+    "Chanh": "quả",
+    "Dâu tây (tươi)": "g",
+    "Đào (ngâm)": "hộp",
+    "Vải (ngâm)": "hộp",
     # Khác
-    "Đá viên": "kg", "Nước lọc": "l", "Trân châu": "kg", "Bánh Croissant": "cái",
-    "Bánh (khác)": "cái", "Ống hút": "hộp", "Ly (nhựa)": "cái",
+    "Trân châu": "g",
+    "Đá viên": "kg", # Đá là ngoại lệ vì dùng nhiều
 }
 
-def seed_data():
-    """
-    Thêm các nguyên liệu từ INGREDIENT_MAP vào CSDL.
-    Sẽ bỏ qua nếu Tên Nguyên Liệu đã tồn tại.
-    """
-    print("Bắt đầu thêm dữ liệu nguyên liệu mẫu...")
+# MAP 2: VẬT TƯ (Không dùng cho Công thức)
+SUPPLY_MAP = {
+    "Cà phê (phin giấy)": "gói",
+    "Trà túi lọc": "gói",
+    "Bánh Croissant": "cái",
+    "Bánh Tiramisu": "cái",
+    "Ống hút": "hộp",
+    "Ly (nhựa)": "cái",
+    "Ly (giấy)": "cái",
+    "Túi (mang đi)": "cái",
+}
 
+def seed_data(ingredient_map, type_name):
+    """Hàm chung để seed dữ liệu từ một map"""
+    count_added = 0
+    count_skipped = 0
+    
+    sorted_ingredients = sorted(ingredient_map.items())
+    
+    for ten_nl, don_vi in sorted_ingredients:
+        check_query = "SELECT COUNT(*) FROM NguyenLieu WHERE TenNL = ?"
+        if execute_scalar(check_query, (ten_nl,)) > 0:
+            print(f"  [BỎ QUA {type_name}] '{ten_nl}' đã tồn tại.")
+            count_skipped += 1
+            continue
+        
+        manl = generate_next_manl(cursor)
+        
+        insert_query = "INSERT INTO NguyenLieu (MaNL, TenNL, DonVi, SoLuongTon) VALUES (?, ?, ?, 0)"
+        if execute_query(insert_query, (manl, ten_nl, don_vi)):
+            print(f"  [THÊM {type_name}] {manl} - {ten_nl} ({don_vi})")
+            count_added += 1
+        else:
+            print(f"  [LỖI] Không thể thêm {ten_nl}")
+    
+    return count_added, count_skipped
+
+def main_seed():
+    print("Bắt đầu thêm/cập nhật dữ liệu nguyên liệu mẫu...")
     if cursor is None or conn is None:
         print("LỖI: Không thể kết nối CSDL.")
         return
 
-    count_added = 0
-    count_skipped = 0
-
     try:
-        # Sắp xếp map theo tên để Mã NL (NL001, NL002...) được tạo ra
-        # nhất quán theo thứ tự bảng chữ cái
-        sorted_ingredients = sorted(INGREDIENT_MAP.items())
-
-        for ten_nl, don_vi in sorted_ingredients:
-
-            # 1. Kiểm tra xem TÊN NGUYÊN LIỆU đã tồn tại chưa
-            check_query = "SELECT COUNT(*) FROM NguyenLieu WHERE TenNL = ?"
-            if execute_scalar(check_query, (ten_nl,)) > 0:
-                print(f"  [BỎ QUA] '{ten_nl}' đã tồn tại.")
-                count_skipped += 1
-                continue
-
-            # 2. Tạo Mã NL mới
-            # (Chúng ta truyền cursor vào vì helper này yêu cầu)
-            manl = generate_next_manl(cursor)
-
-            # 3. Thêm vào CSDL
-            insert_query = "INSERT INTO NguyenLieu (MaNL, TenNL, DonVi, SoLuongTon) VALUES (?, ?, ?, 0)"
-            if execute_query(insert_query, (manl, ten_nl, don_vi)):
-                print(f"  [THÊM] {manl} - {ten_nl} ({don_vi})")
-                count_added += 1
-            else:
-                print(f"  [LỖI] Không thể thêm {ten_nl}")
-
+        # Seed Thực phẩm
+        added_food, skipped_food = seed_data(FOOD_MAP, "Thực phẩm")
+        
+        # Seed Vật tư
+        added_supply, skipped_supply = seed_data(SUPPLY_MAP, "Vật tư")
+        
         print("\nHoàn tất!")
-        print(f"Đã thêm mới: {count_added} nguyên liệu.")
-        print(f"Đã bỏ qua (trùng lặp): {count_skipped} nguyên liệu.")
+        print(f"Tổng Thực phẩm: {added_food} mới / {skipped_food} bỏ qua.")
+        print(f"Tổng Vật tư: {added_supply} mới / {skipped_supply} bỏ qua.")
 
     except Exception as e:
         print(f"\nĐÃ XẢY RA LỖI: {e}")
@@ -90,4 +116,4 @@ def seed_data():
             print("Đã đóng kết nối CSDL.")
 
 if __name__ == "__main__":
-    seed_data()
+    main_seed()

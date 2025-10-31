@@ -3,7 +3,7 @@ import tkinter.ttk as ttk
 def setup_styles():
     style = ttk.Style()
 
-    # ✅ dùng theme "clam" để đảm bảo style hiển thị đầy đủ
+    #dùng theme "clam" để đảm bảo style hiển thị đầy đủ
     style.theme_use('clam')
 
     base_font = ("Segoe UI", 10, "bold")

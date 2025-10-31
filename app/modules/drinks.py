@@ -135,7 +135,7 @@ def add_drink(refresh):
     # --- Danh sách trường và giá trị cho combobox ---
     labels = ["Mã SP", "Tên sản phẩm", "Loại", "Đơn giá", "Trạng thái"]
     types = ["Cà phê", "Trà sữa", "Sinh tố", "Nước ngọt", "Khác"]
-    statuses = ["Có hàng", "Hết hàng", "Ngưng bán"]
+    statuses = ["Còn bán", "Hết hàng", "Ngưng bán"]
 
     # --- Sinh form ---
     for i, text in enumerate(labels):

@@ -306,7 +306,8 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
         prod_list = []
         
     prod_var = tk.StringVar()
-    prod_cb = ttk.Combobox(right, values=prod_list, textvariable=prod_var, state="readonly", width=35)
+    prod_cb = ttk.Combobox(right, values=prod_list, textvariable=prod_var, state="readonly", 
+    width=35)
     prod_cb.pack(pady=6)
 
     # ... (Phần logic combobox, entry, label giữ nguyên)
@@ -476,6 +477,9 @@ def invoice_detail_window(root, mahd, parent_refresh=None):
 
 # ---------- DELETE INVOICE ----------
 # SỬA 13: Nâng cấp delete_invoice (dùng iid và execute_scalar)
+# (Giả định bạn đã import 'db' ở đầu file app/modules/invoices.py)
+# from app import db
+
 def delete_invoice(tree, refresh):
     """Xóa hóa đơn (sử dụng helper safe_delete, có xử lý chi tiết hóa đơn)."""
     selected = tree.selection()
@@ -486,6 +490,20 @@ def delete_invoice(tree, refresh):
     mahd = selected[0] # Lấy MaHD (iid)
 
     try:
+        # =========================================================
+        # SỬA LỖI TOÀN VẸN: KIỂM TRA TRẠNG THÁI TRƯỚC KHI XÓA
+        # =========================================================
+        trang_thai = db.execute_scalar("SELECT TrangThai FROM HoaDon WHERE MaHD = ?", (mahd,))
+        
+        # So sánh chuỗi Python bình thường (không có N'')
+        if trang_thai == 'Đã thanh toán': 
+            messagebox.showwarning(
+                "Không thể xóa", 
+                f"Hóa đơn {mahd} đã được thanh toán và không thể xóa."
+            )
+            return
+        # =========================================================
+
         # Kiểm tra xem hóa đơn có chi tiết không
         count = db.execute_scalar("SELECT COUNT(*) FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,)) or 0
 
@@ -516,7 +534,6 @@ def delete_invoice(tree, refresh):
 
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể xóa hóa đơn: {e}")
-
 # SỬA 14: Sửa lỗi logic và chuẩn hóa update_customer_points
 def update_customer_points(mahd):
     """

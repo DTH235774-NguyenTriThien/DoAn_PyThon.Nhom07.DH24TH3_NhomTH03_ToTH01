@@ -6,6 +6,7 @@ from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
+from app.utils.report_helpers import print_pos_receipt
 import configparser
 import os 
 
@@ -18,10 +19,8 @@ except ImportError:
 from app.utils.id_helpers import generate_next_mahd
 from app.utils.business_helpers import recalc_invoice_total, deduct_inventory_from_recipe
 from app.modules.invoices import update_customer_points 
-from app.utils.report_helpers import print_pos_receipt
 
 def create_pos_module(parent_frame, employee_id, on_back_callback):
-    """Giao diện chính cho Module Bán hàng (POS) - Bố cục 2 cột"""
     
     setup_styles()
     
@@ -44,8 +43,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     tk.Label(header, text="🛒 BÁN HÀNG TẠI QUẦY (POS)", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(side="left", padx=15, pady=12)
     
-    btn_back = ttk.Button(header, text="⬅ Quay lại", style="Close.TButton",
-                          command=lambda: _internal_on_back()) # Sửa: Gọi hàm dọn dẹp
+    btn_back = ttk.Button(header, text="⬅ Quay lại", style="Close.TButton")
     btn_back.pack(side="right", padx=15)
 
     # --- Khung Giao diện 2 Cột (dùng GRID) ---
@@ -75,18 +73,19 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     cart_frame.grid_rowconfigure(1, weight=0) 
     cart_frame.grid_columnconfigure(0, weight=1)
 
-    # SỬA 1: THÊM CỘT "GhiChu" VÀO GIỎ HÀNG
     cart_cols = ("TenSP", "SL", "DonGia", "GhiChu")
     tree_cart = ttk.Treeview(cart_frame, columns=cart_cols, show="headings", height=10) 
     tree_cart.heading("TenSP", text="Tên Sản Phẩm"); tree_cart.column("TenSP", width=150, anchor="w")
     tree_cart.heading("SL", text="SL"); tree_cart.column("SL", width=30, anchor="center")
     tree_cart.heading("DonGia", text="Đơn Giá"); tree_cart.column("DonGia", width=70, anchor="e")
     tree_cart.heading("GhiChu", text="Ghi chú"); tree_cart.column("GhiChu", width=100, anchor="w")
-    
     tree_cart.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
     cart_scroll = ttk.Scrollbar(cart_frame, orient="vertical", command=tree_cart.yview)
     cart_scroll.grid(row=0, column=1, sticky="ns")
     tree_cart.configure(yscrollcommand=cart_scroll.set)
+    
+    # SỬA 2: Gán biến đếm (counter) vào tree_cart
+    tree_cart.counter = 0
 
     # --- Khung Tổng tiền ---
     total_frame = tk.Frame(cart_frame, bg="#f5e6ca")
@@ -132,7 +131,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
 
 
     # =========================================================
-    # HÀM CẬP NHẬT TỔNG TIỀN (SỬA LẠI LOGIC TÍNH)
+    # HÀM CẬP NHẬT TỔNG TIỀN (Giữ nguyên)
     # =========================================================
     def update_totals():
         nonlocal current_customer_info, vnd_per_point_ratio
@@ -157,53 +156,43 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         final_total_var.set(f"{int(final_total):,} đ")
 
     # =========================================================
-    # SỬA 2: TÁI CẤU TRÚC HÀM XỬ LÝ GIỎ HÀNG (MODIFIERS)
+    # CÁC HÀM XỬ LÝ GIỎ HÀNG
     # =========================================================
     
-    # Biến đếm (counter) để tạo iid duy nhất cho giỏ hàng
-    _cart_item_counter = 0
+    # SỬA 1: Xóa dòng định nghĩa _cart_item_counter = 0 ở đây
 
     def add_item_to_cart(product_info, notes):
         """Thêm 1 sản phẩm vào giỏ hàng VỚI GHI CHÚ."""
-        nonlocal _cart_item_counter
+        # SỬA 3: Xóa 'nonlocal _cart_item_counter'
         
         masp = product_info['MaSP']
         tensp = product_info['TenSP']
         dongia = Decimal(product_info['DonGia'])
         
-        # Logic gộp dòng: Tìm một dòng có CÙNG MaSP VÀ CÙNG GhiChu
         item_to_increment = None
-        if not notes: # Chỉ gộp dòng nếu không có ghi chú
+        if not notes: 
             for iid in tree_cart.get_children():
                 tags = tree_cart.item(iid, 'tags')
-                # 'tags' lưu (MaSP, GhiChu)
                 if tags and tags[0] == masp and tags[1] == "":
                     item_to_increment = iid
                     break
         
         if item_to_increment:
-            # Nếu tìm thấy, tăng số lượng
             tree_cart.selection_set(item_to_increment) 
             tree_cart.focus(item_to_increment)         
             increment_quantity()          
         else:
-            # Nếu không, thêm dòng mới
             sl = 1
-            
-            # Sửa: Cột 0 là TênSP (có thể có ghi chú), 1 là SL, 2 là ĐơnGiá, 3 là GhiChu
             tensp_display = tensp
             if notes:
-                tensp_display = f"{tensp} ({notes})" # Hiển thị "Cà phê Sữa (Ít đường)"
-
+                tensp_display = f"{tensp} ({notes})" 
             values = (tensp_display, sl, f"{int(dongia):,}", notes)
             
-            # Sửa: iid phải là duy nhất
-            _cart_item_counter += 1
-            new_iid = f"item_{_cart_item_counter}" 
+            # SỬA 3: Sử dụng counter của tree_cart
+            tree_cart.counter += 1
+            new_iid = f"item_{tree_cart.counter}" 
             
-            # Sửa: Lưu MaSP và GhiChu gốc vào 'tags' để dùng sau
             tags = (masp, notes)
-            
             tree_cart.insert("", "end", iid=new_iid, values=values, tags=tags)
         
         update_totals() 
@@ -228,7 +217,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         tensp_display, sl, dongia_str, notes = values
         sl = int(sl)
         sl_moi = sl - 1
-        
         if sl_moi <= 0:
             remove_item_from_cart()
         else:
@@ -257,17 +245,15 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     # =========================================================
-    # SỬA 3: HÀM MỚI (CỬA SỔ TÙY CHỌN)
+    # HÀM TÙY CHỌN (MODIFIERS) (Giữ nguyên)
     # =========================================================
     def show_options_window(product_info):
-        """Mở cửa sổ Toplevel để nhập Ghi chú/Tùy chọn"""
-        
         win = tk.Toplevel(module_frame)
         win.title(f"Tùy chọn cho: {product_info['TenSP']}")
         win.geometry("350x200")
         win.configure(bg="#f8f9fa")
-        win.transient(module_frame) # Giữ nó ở trên cùng
-        win.grab_set() # Khóa tương tác với cửa sổ chính
+        win.transient(module_frame) 
+        win.grab_set() 
         
         form = tk.Frame(win, bg="#f8f9fa", padx=15, pady=10)
         form.pack(fill="both", expand=True)
@@ -278,9 +264,8 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         notes_var = tk.StringVar()
         entry_notes = ttk.Entry(form, textvariable=notes_var, font=("Arial", 11))
         entry_notes.pack(fill="x", pady=5)
-        entry_notes.focus_set() # Tự động focus vào ô
+        entry_notes.focus_set() 
 
-        # Khung chứa các nút tùy chọn nhanh (Tùy chọn)
         quick_notes_frame = tk.Frame(form, bg="#f8f9fa")
         quick_notes_frame.pack(fill="x", pady=5)
         
@@ -298,7 +283,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         ttk.Button(quick_notes_frame, text="Nhiều đá", 
                    command=lambda: add_quick_note("Nhiều đá")).pack(side="left", padx=2)
         
-        # Nút Xác nhận / Hủy
         btn_frame = tk.Frame(form, bg="#f8f9fa")
         btn_frame.pack(fill="x", pady=15)
 
@@ -312,16 +296,14 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         ttk.Button(btn_frame, text="Hủy", style="Close.TButton", 
                  command=win.destroy).pack(side="right", padx=5)
         
-        # Bind phím Enter để Xác nhận
         win.bind("<Return>", lambda e: on_confirm())
         win.bind("<Escape>", lambda e: win.destroy())
 
 
     # =========================================================
-    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS)
+    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS) (Giữ nguyên)
     # =========================================================
     def on_cart_double_click(event):
-        """Sửa số lượng khi double-click vào giỏ hàng"""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -367,19 +349,22 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     module_frame.bind_all("<F9>", on_f9_press)
     module_frame.bind_all("<F12>", on_f12_press)
     
-    def _internal_on_back(event=None):
-        print("Đang dọn dẹp phím tắt F9, F12 của module POS...")
+    def _cleanup_hotkeys(event=None):
+        #print("Đang dọn dẹp phím tắt F9, F12 của module POS...")
         module_frame.unbind_all("<F9>")
         module_frame.unbind_all("<F12>")
         module_frame.unbind("<Destroy>")
-        # Gọi hàm callback gốc (để quay về mainmenu)
+        
+    def _on_back_pressed_wrapper():
+        _cleanup_hotkeys()
         on_back_callback()
         
-    module_frame.bind("<Destroy>", _internal_on_back)
-    btn_back.config(command=_internal_on_back) # Gán cho nút quay lại
+    btn_back.config(command=_on_back_pressed_wrapper)
+    module_frame.bind("<Destroy>", _cleanup_hotkeys)
+    
 
     # =========================================================
-    # CỘT 1: DANH SÁCH SẢN PHẨM (MENU)
+    # CỘT 1: DANH SÁCH SẢN PHẨM (MENU) (Giữ nguyên)
     # =========================================================
     product_frame = ttk.LabelFrame(main_content_frame, text=" 1. Chọn Món ")
     product_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
@@ -414,21 +399,26 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 SELECT MaSP, TenSP, DonGia, ImagePath 
                 FROM SanPham WHERE TrangThai = N'Còn bán' ORDER BY TenSP
             """)
+            
             placeholder_path = os.path.join('app', 'assets', 'products', 'placeholder.png')
+            
             row, col = 0, 0
             NUM_COLUMNS = 5 
+            
             for prod in products:
                 gia = f"{int(prod['DonGia']):,}"
                 btn_text = f"{prod['TenSP']}\n({gia} đ)"
+                
                 img_path = prod.get('ImagePath') 
+                
                 if not img_path or not os.path.exists(img_path):
                     img_path = placeholder_path 
+                
                 try:
                     img = Image.open(img_path)
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
                 except Exception as e:
-                    print(f"Lỗi xử lý ảnh {img_path}: {e}")
                     img = Image.open(placeholder_path) 
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
@@ -436,18 +426,20 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 parent.image_references.append(photo)
                 prod_info = prod 
                 
-                # SỬA 4: Gán command cho hàm mới
                 btn = ttk.Button(parent, text=btn_text, style="Product.TButton", 
                                  image=photo, 
                                  command=lambda p=prod_info: show_options_window(p)) 
                 
                 btn.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
+                
                 col += 1
                 if col >= NUM_COLUMNS: 
                     col = 0
                     row += 1
+            
             for c in range(NUM_COLUMNS):
                 parent.grid_columnconfigure(c, weight=1)
+                
         except Exception as e:
             ttk.Label(parent, text=f"Lỗi tải sản phẩm: {e}").grid(row=0, column=0, padx=10, pady=10)
     
@@ -501,7 +493,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
 
     cust_search_var.trace_add("write", find_customer_realtime)
     
-    # SỬA 5: CẬP NHẬT HÀM THANH TOÁN (PROCESS_PAYMENT)
     def process_payment():
         nonlocal current_customer_info
         if not tree_cart.get_children():
@@ -509,7 +500,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             return
 
         mahd = generate_next_mahd(db.cursor)
-        manv = employee_id # Đã sửa tên biến này
+        manv = employee_id 
         makh = current_customer_info.get("MaKH") 
         
         tong_truoc_giam_gia_str = total_var.get().replace(",", "").split(" ")[0]
@@ -544,12 +535,10 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             if not execute_query(query_hd, params_hd):
                 raise Exception("Không thể tạo Hóa đơn.")
 
-            # Lặp qua giỏ hàng để lưu ChiTietHoaDon
             for item_id in tree_cart.get_children():
                 values = tree_cart.item(item_id, "values")
                 tags = tree_cart.item(item_id, "tags")
 
-                # Lấy dữ liệu thô từ 'tags' và 'values'
                 masp = tags[0]
                 notes = tags[1]
                 
@@ -557,7 +546,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 sl = int(sl)
                 dongia = Decimal(dongia_str.replace(",", ""))
                 
-                # SỬA: Thêm GhiChu vào query
                 query_cthd = """
                     INSERT INTO ChiTietHoaDon (MaHD, MaSP, SoLuong, DonGia, GhiChu)
                     VALUES (?, ?, ?, ?, ?)

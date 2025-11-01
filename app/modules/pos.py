@@ -17,11 +17,10 @@ except ImportError:
 
 from app.utils.id_helpers import generate_next_mahd
 from app.utils.business_helpers import recalc_invoice_total, deduct_inventory_from_recipe
-# Sửa 1: Import hàm in (từ file bạn đã cập nhật)
-from app.utils.report_helpers import print_pos_receipt 
 from app.modules.invoices import update_customer_points 
+from app.utils.report_helpers import print_pos_receipt
 
-def create_pos_module(parent_frame, login_username, on_back_callback):
+def create_pos_module(parent_frame, employee_id, on_back_callback): # Đã sửa tên biến
     """Giao diện chính cho Module Bán hàng (POS) - Bố cục 2 cột"""
     
     setup_styles()
@@ -44,8 +43,11 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
     header.pack(fill="x")
     tk.Label(header, text="🛒 BÁN HÀNG TẠI QUẦY (POS)", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(side="left", padx=15, pady=12)
-    ttk.Button(header, text="⬅ Quay lại", style="Close.TButton",
-             command=on_back_callback).pack(side="right", padx=15)
+    
+    # SỬA 1: Gán lệnh `on_back_callback` TRỰC TIẾP
+    btn_back = ttk.Button(header, text="⬅ Quay lại", style="Close.TButton",
+                          command=on_back_callback) 
+    btn_back.pack(side="right", padx=15)
 
     # --- Khung Giao diện 2 Cột (dùng GRID) ---
     main_content_frame = tk.Frame(module_frame, bg="#f5e6ca")
@@ -62,7 +64,6 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
     controls_frame = tk.Frame(main_content_frame, bg="#f5e6ca")
     controls_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
     controls_frame.grid_columnconfigure(0, weight=1) 
-    
     controls_frame.grid_rowconfigure(0, weight=1, minsize=200) # Hàng 0: Giỏ hàng
     controls_frame.grid_rowconfigure(1, weight=0) # Hàng 1: Khách hàng
     controls_frame.grid_rowconfigure(2, weight=0) # Hàng 2: Hành động
@@ -220,7 +221,7 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
             update_totals()
 
     # =========================================================
-    # SỰ KIỆN MỚI (DOUBLE-CLICK VÀ KEYPRESS) (Giữ nguyên)
+    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS)
     # =========================================================
     def on_cart_double_click(event):
         selected_iid = tree_cart.focus()
@@ -260,15 +261,33 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
     tree_cart.bind("<Double-1>", on_cart_double_click)
     tree_cart.bind("<KeyRelease>", on_cart_keypress)
 
-    def on_global_keypress(event):
-        if event.keysym == 'F9':
-            process_payment()
-        elif event.keysym == 'F12':
-            clear_cart()
+    # --- SỬA 2: TÁCH RIÊNG CÁC HÀM PHÍM TẮT TOÀN CỤC ---
+    def on_f9_press(event):
+        """Hàm xử lý khi nhấn F9 (Thanh toán)"""
+        process_payment()
 
-    module_frame.bind_all("<KeyPress>", on_global_keypress, add="+")
+    def on_f12_press(event):
+        """Hàm xử lý khi nhấn F12 (Hủy bỏ)"""
+        clear_cart()
+
+    # Gán phím tắt toàn cục
+    module_frame.bind_all("<F9>", on_f9_press)
+    module_frame.bind_all("<F12>", on_f12_press)
     
-    # (Việc unbind phím tắt khi quay lại sẽ được thêm sau)
+    # --- SỬA 3: TẠO HÀM DỌN DẸP PHÍM TẮT ---
+    def _cleanup_hotkeys(event=None):
+        """Hàm này được gọi khi frame bị hủy"""
+        module_frame.unbind_all("<F9>")
+        module_frame.unbind_all("<F12>")
+        # Hủy bind chính nó để tránh lỗi
+        module_frame.unbind("<Destroy>")
+        
+    # --- SỬA 4: GÁN HÀM DỌN DẸP VÀO SỰ KIỆN <DESTROY> ---
+    # Khi mainmenu gọi .destroy() trên module này, hàm _cleanup_hotkeys sẽ tự động chạy
+    module_frame.bind("<Destroy>", _cleanup_hotkeys)
+    
+    # (Lưu ý: Nút "Quay lại" ở Header (SỬA 1) đã được gán trực tiếp
+    # cho `on_back_callback`, nó sẽ tự động kích hoạt <Destroy>)
 
     # =========================================================
     # CỘT 1: DANH SÁCH SẢN PHẨM (MENU) (Giữ nguyên)
@@ -406,7 +425,7 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
             return
 
         mahd = generate_next_mahd(db.cursor)
-        manv = login_username 
+        manv = employee_id # SỬA: Đã dùng đúng 'employee_id'
         makh = current_customer_info.get("MaKH") 
         
         tong_truoc_giam_gia_str = total_var.get().replace(",", "").split(" ")[0]
@@ -443,10 +462,7 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
 
             for item_id in tree_cart.get_children():
                 values = tree_cart.item(item_id, "values")
-                
-                # SỬA LỖI: 'item_id' (hay iid) CHÍNH LÀ MaSP
-                masp = item_id
-                
+                masp = item_id 
                 tensp, sl, dongia_str = values
                 sl = int(sl)
                 dongia = Decimal(dongia_str.replace(",", ""))
@@ -474,7 +490,7 @@ def create_pos_module(parent_frame, login_username, on_back_callback):
                 try:
                     print_pos_receipt(mahd) # Gọi hàm in
                 except Exception as print_e:
-                    messagebox.showerror("Lỗi In", f"Không thể in hóad đơn:\n{print_e}", parent=module_frame)
+                    messagebox.showerror("Lỗi In", f"Không thể in hóa đơn:\n{print_e}", parent=module_frame)
             
             clear_cart() 
 

@@ -327,7 +327,7 @@ def open_invoice_detail(tree, parent_refresh):
     invoice_detail_window(tree.master, mahd, parent_refresh, trang_thai)
 
 # ---------- CREATE A NEW INVOICE (HELPER) ----------
-def add_invoice(root, username, refresh):
+def add_invoice(root, employee_id, refresh):
     """
     Thêm hóa đơn mới.
     'root' ở đây là cha của Toplevel (sẽ là parent_frame), 'username' dùng để điền sẵn.
@@ -375,7 +375,7 @@ def add_invoice(root, username, refresh):
                 ent.insert(0, mahd_auto)
                 ent.config(state="readonly")
             elif text == "Mã NV (người lập)":
-                ent.insert(0, username or "")
+                ent.insert(0, employee_id or "")
             ent.grid(row=i, column=1, padx=8, pady=8, sticky="ew")
             entries[text] = ent
 
@@ -389,7 +389,7 @@ def add_invoice(root, username, refresh):
     def submit():
         try:
             mahd = entries["Mã hóa đơn"].get().strip()
-            manv = entries["Mã NV (người lập)"].get().strip()
+            manv = employee_id
             trangthai = entries["Trạng thái"].get().strip()
             ngaylap_raw = entries["Ngày lập"].get().strip()
             ghichu = entries["Ghi chú"].get("1.0", "end").strip()
@@ -479,7 +479,7 @@ def delete_invoice(tree, refresh):
 # =========================================================
 
 # SỬA 3: Thay đổi chữ ký hàm (bỏ role, thêm on_back_callback)
-def create_invoices_module(parent_frame, username, on_back_callback):
+def create_invoices_module(parent_frame, employee_id, on_back_callback):
     
     # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
     # clear_window(root)
@@ -580,7 +580,7 @@ def create_invoices_module(parent_frame, username, on_back_callback):
 
     # SỬA 10: Truyền 'parent_frame' (cha của Toplevel) và 'username' (nghiệp vụ)
     ttk.Button(top, text="➕ Thêm", style = "Add.TButton",
-             command=lambda: add_invoice(parent_frame, username, refresh)).pack(side="left", padx=6)
+             command=lambda: add_invoice(parent_frame, employee_id, refresh)).pack(side="left", padx=6)
     
     # SỬA 11: Xóa 'role' khỏi lệnh gọi (vì đã sửa hàm open_invoice_detail)
     ttk.Button(top, text="✏️ Sửa", style="Edit.TButton",

@@ -6,10 +6,9 @@ import os
 import bcrypt 
 
 # Import các helper chuẩn
-from app.utils.utils import clear_window, center_window # Import thêm center_window
+from app.utils.utils import clear_window, center_window 
 from app.db import fetch_query 
 
-# SỬA 1: Chấp nhận 'on_exit_callback'
 def show_login(root, on_exit_callback=None):
     """Hiển thị giao diện đăng nhập (đã nâng cấp lên Bcrypt)"""
     clear_window(root)
@@ -18,11 +17,10 @@ def show_login(root, on_exit_callback=None):
 
     window_width = 550
     window_height = 450
-    # Dùng helper center_window
     center_window(root, window_width, window_height) 
     root.minsize(150, 200)
 
-    # (Code UI Card, Form, Entry, Label, Nút con mắt... giữ nguyên)
+    # (Code UI Card... giữ nguyên)
     frame = tk.Frame(root, bg="#fff8e1", bd=2, relief="groove", highlightbackground="#a1887f", highlightthickness=1)
     frame.place(relx=0.5, rely=0.5, anchor="center", width=420, height=360)
     tk.Label(frame, text="☕ ĐĂNG NHẬP HỆ THỐNG ☕", font=("Segoe UI", 16, "bold"), bg="#fff8e1", fg="#4e342e").pack(pady=18)
@@ -58,7 +56,9 @@ def show_login(root, on_exit_callback=None):
     btn_frame = tk.Frame(frame, bg="#fff8e1")
     btn_frame.pack(pady=12)
 
-    # (Hàm check_login logic Bcrypt và logic Chào Tên giữ nguyên)
+    # =========================================================
+    # SỬA LỖI HÀM CHECK_LOGIN
+    # =========================================================
     def check_login():
         user = entry_user.get().strip()
         pw_plain = entry_pass.get().strip()
@@ -68,7 +68,7 @@ def show_login(root, on_exit_callback=None):
             return
         
         query = """
-            SELECT tk.TenDangNhap, tk.MatKhauHash, nv.HoTen, tk.Role
+            SELECT tk.TenDangNhap, tk.MatKhauHash, nv.HoTen, tk.Role, tk.MaNV
             FROM TaiKhoan tk
             LEFT JOIN NhanVien nv ON tk.MaNV = nv.MaNV
             WHERE tk.TenDangNhap = ? AND (nv.MaNV IS NULL OR nv.TrangThai != N'Đã nghỉ')
@@ -77,17 +77,28 @@ def show_login(root, on_exit_callback=None):
 
         if results:
             user_data = results[0]
-            hash_from_db_str = user_data["MatKhauHash"] 
+            hash_from_db_str = user_data.get("MatKhauHash") # Dùng .get()
+
+            # SỬA LỖI: Di chuyển các khai báo biến ra BÊN NGOÀI khối 'try'
+            # (Dùng .get() để tránh lỗi nếu cột bị NULL)
+            username_login = user_data.get("TenDangNhap", user) 
+            hoten = user_data.get("HoTen")
+            role = user_data.get("Role", "Unknown")
+            employee_id = user_data.get("MaNV") # (ví dụ: 'NV001' hoặc 'NULL')
+            display_name = hoten or username_login
+            # =========================================================
+
+            if not hash_from_db_str:
+                 messagebox.showerror("Lỗi Hash", f"Tài khoản [{username_login}] không có mật khẩu (hash bị NULL).")
+                 return
 
             try:
                 pw_plain_bytes = pw_plain.encode('utf-8')
                 hash_from_db_bytes = hash_from_db_str.encode('utf-8')
 
                 if bcrypt.checkpw(pw_plain_bytes, hash_from_db_bytes):
-                    username = user_data["TenDangNhap"]
-                    hoten = user_data["HoTen"]
-                    role = user_data["Role"]
-                    display_name = hoten or username # Dùng cho lời chào
+                    
+                    # (Các biến đã được định nghĩa ở trên)
 
                     if remember_var.get():
                         rc = configparser.ConfigParser()
@@ -101,13 +112,16 @@ def show_login(root, on_exit_callback=None):
                     messagebox.showinfo("Đăng nhập", f"Xin chào {display_name}!\nVai trò: {role}")
                     
                     from app.ui.mainmenu_frame import show_main_menu
-                    # SỬA 2: Truyền callback 'on_exit_callback' đi tiếp
-                    show_main_menu(root, display_name, role, on_exit_callback)
+                    # Truyền callback và employee_id (MaNV)
+                    show_main_menu(root, display_name, role, on_exit_callback, employee_id=employee_id)
                 else:
                     entry_pass.focus_set()
                     messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")
+            
             except Exception as e:
-                messagebox.showerror("Lỗi Hash", f"Lỗi định dạng mật khẩu. Vui lòng chạy script đồng bộ.\n{e}")
+                # SỬA LỖI: Bây giờ 'username_login' đã tồn tại 
+                # và có thể hiển thị thông báo lỗi chính xác.
+                messagebox.showerror("Lỗi Hash", f"Lỗi định dạng mật khẩu cho [{username_login}]. Vui lòng chạy script đồng bộ.\n{e}")
         else:
             messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")
             

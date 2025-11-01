@@ -13,7 +13,8 @@ except ImportError:
     print("WARNING: Thư viện 'Pillow' chưa được cài đặt (pip install Pillow).")
     print("Sẽ sử dụng icon text dự phòng.")
 
-def show_main_menu(root, username_display, role, on_exit_callback=None):
+def show_main_menu(root, username_display, role, on_exit_callback=None, employee_id=None):
+
     clear_window(root)
     root.title(f"Hệ thống Quản lý Quán Cà Phê - Chào {username_display} ({role})")
     root.configure(bg="#f5e6ca") 
@@ -111,8 +112,8 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
         # SỬA 1: THÊM LOGIC GỌI MODULE "POS"
         elif module_name == "POS":
             from app.modules.pos import create_pos_module
-            # Truyền username_display vì POS cần biết ai đang bán hàng
-            module_frame_instance = create_pos_module(module_container, username_display, on_back_to_dashboard_callback)
+            # SỬA LỖI: Truyền 'login_username' (vd: 'nv004')
+            module_frame_instance = create_pos_module(module_container, employee_id, on_back_to_dashboard_callback)
             module_frame_instance.pack(fill="both", expand=True)
             
         elif module_name == "Employees":
@@ -134,9 +135,10 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
             
         elif module_name == "Invoices":
             from app.modules.invoices import create_invoices_module
+            # SỬA LỖI: Truyền 'login_username' (vd: 'nv004')
             module_frame_instance = create_invoices_module(
                 module_container, 
-                username_display, 
+                employee_id, 
                 on_back_to_dashboard_callback
             )
             module_frame_instance.pack(fill="both", expand=True)

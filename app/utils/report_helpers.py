@@ -304,3 +304,30 @@ def get_dashboard_kpis():
     except Exception as e:
         print(f"Lỗi khi lấy KPI Dashboard: {e}")
         return data # Trả về 0 nếu có lỗi
+    
+# =========================================================
+# HELPER CHO DASHBOARD (CẢNH BÁO TỒN KHO)
+# =========================================================
+def get_low_stock_alerts(threshold=10):
+    """
+    Lấy danh sách các NGUYÊN LIỆU (không phải vật tư)
+    đang có tồn kho thấp hơn một ngưỡng (threshold)
+    
+    (Giả định: Chúng ta bỏ qua các đơn vị 'cái', 'hộp', 'gói' vì chúng là vật tư)
+    """
+    try:
+        query = """
+            SELECT TenNL, SoLuongTon, DonVi
+            FROM NguyenLieu
+            WHERE SoLuongTon <= ? 
+              AND DonVi NOT IN (N'cái', N'hộp', N'gói', N'lọ')
+            ORDER BY SoLuongTon ASC
+        """
+        # (Nếu bạn muốn cảnh báo cả 'cái', 'hộp'... 
+        #  chỉ cần xóa dòng "AND DonVi NOT IN...")
+        
+        return fetch_query(query, (threshold,))
+        
+    except Exception as e:
+        print(f"Lỗi khi lấy cảnh báo tồn kho: {e}")
+        return []

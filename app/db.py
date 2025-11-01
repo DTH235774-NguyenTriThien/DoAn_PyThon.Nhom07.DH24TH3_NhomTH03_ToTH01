@@ -176,7 +176,6 @@ def count_query(table_name, where_clause=None, params=()):
 # def close_connection():
 # ... (đã xóa) ...
 
-
 def close_db_connection():
     """Đóng kết nối đến SQL Server (được gọi bởi main.py)."""
     global conn, cursor
@@ -187,8 +186,8 @@ def close_db_connection():
             conn.close()
         cursor = None
         conn = None
-        print("Đã đóng kết nối CSDL.") # Có thể bỏ ghi chú để debug
+        #print("Đã đóng kết nối CSDL.") # Có thể bỏ ghi chú để debug
     except Exception as e:
-        print(f"Lỗi khi đóng CSDL: {e}")
+        #print(f"Lỗi khi đóng CSDL: {e}")
         cursor = None
         conn = None

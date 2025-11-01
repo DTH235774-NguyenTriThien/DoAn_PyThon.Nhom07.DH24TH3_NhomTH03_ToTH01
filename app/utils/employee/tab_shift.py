@@ -174,9 +174,9 @@ def add_shift(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm ca làm: {e}", parent=win)
 
     # Sửa tên nút (bị lỗi copy-paste từ tab_info)
-    ttk.Button(form, text="💾 Lưu ca làm", style="Add.TButton",
-               command=submit).grid(row=4, column=0, columnspan=2, pady=15)
-    form.grid_columnconfigure(1, weight=1)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: submit()).pack(ipadx=10, ipady=5)
 
 def edit_shift(tree, refresh):
     selected = tree.selection()
@@ -231,8 +231,9 @@ def edit_shift(tree, refresh):
             messagebox.showerror("Lỗi", f"Không thể cập nhật ca làm: {e}", parent=win)
     
     # Sửa tên nút (bị lỗi copy-paste từ tab_info)
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton",
-               command=save).grid(row=5, column=0, columnspan=2, pady=15)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
 
 def delete_shift(tree, refresh):
     selected = tree.selection()

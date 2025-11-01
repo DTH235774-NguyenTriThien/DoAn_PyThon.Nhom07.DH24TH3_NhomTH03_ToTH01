@@ -169,8 +169,9 @@ def add_employee(refresh):
     form.grid_columnconfigure(1, weight=1)
     
     # Sửa tên nút cho nhất quán
-    ttk.Button(form, text="💾 Lưu nhân viên", style="Add.TButton", 
-               command=lambda: submit()).grid(row=len(labels), columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: submit()).pack(ipadx=10, ipady=5)
 
     def submit():
         try:
@@ -248,8 +249,10 @@ def edit_employee(tree, refresh):
     form.grid_columnconfigure(1, weight=1)
     
     # Sửa tên nút cho nhất quán
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton", 
-               command=lambda: save()).grid(row=len(labels), columnspan=2, pady=10)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
+
 
     def save():
         try:

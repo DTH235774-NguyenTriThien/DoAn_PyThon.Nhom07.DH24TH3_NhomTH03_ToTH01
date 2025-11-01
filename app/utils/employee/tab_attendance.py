@@ -268,8 +268,9 @@ def add_attendance(refresh, default_date=None):
             messagebox.showerror("Lỗi", f"Không thể thêm chấm công: {e}", parent=win)
 
     # Sửa tên nút (bị lỗi copy-paste)
-    ttk.Button(form, text="💾 Lưu chấm công", style="Add.TButton",
-               command=submit).grid(row=len(labels), columnspan=2, pady=15)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: submit()).pack(ipadx=10, ipady=5)
 
 def edit_attendance(tree, refresh):
     selected = tree.selection()
@@ -341,8 +342,9 @@ def edit_attendance(tree, refresh):
             messagebox.showerror("Lỗi", f"Không thể cập nhật chấm công: {e}", parent=win)
 
     # Sửa tên nút (bị lỗi copy-paste)
-    ttk.Button(form, text="💾 Lưu thay đổi", style="Add.TButton",
-               command=save).grid(row=len(labels), columnspan=2, pady=15)
+    btn_frame = tk.Frame(win, bg="#f8f9fa")
+    btn_frame.pack(pady=10)
+    ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
 
 def delete_attendance(tree, refresh):
     selected = tree.selection()

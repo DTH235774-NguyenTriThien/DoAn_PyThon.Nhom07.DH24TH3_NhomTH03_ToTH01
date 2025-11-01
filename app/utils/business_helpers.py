@@ -2,6 +2,8 @@
 from tkinter import messagebox
 from datetime import time
 from app import db # Cần để truy cập db.cursor
+from app.db import execute_query, fetch_query
+from decimal import Decimal
 
 # Import các hàm time helper mà chúng ta vừa tách ra
 from app.utils.time_helpers import parse_time, _time_to_minutes
@@ -157,3 +159,85 @@ def recalc_invoice_total(cursor, conn, mahd):
     cursor.execute("UPDATE HoaDon SET TongTien = ? WHERE MaHD = ?", (total, mahd))
     conn.commit()
     return total
+
+# =========================================================
+#               THÊM HÀM TRỪ KHO TỰ ĐỘNG
+# =========================================================
+def deduct_inventory_from_recipe(mahd):
+    """
+    Tự động trừ kho nguyên liệu dựa trên công thức của các món đã bán
+    trong một hóa đơn.
+    """
+    
+    print(f"[LOG] Bắt đầu trừ kho cho Hóa đơn: {mahd}") # Dòng log để debug
+    
+    try:
+        # 1. Lấy tất cả các món đã bán trong hóa đơn này
+        items_sold = fetch_query(
+            "SELECT MaSP, SoLuong FROM ChiTietHoaDon WHERE MaHD = ?",
+            (mahd,)
+        )
+        
+        if not items_sold:
+            print(f"[LOG] Hóa đơn {mahd} không có chi tiết, bỏ qua trừ kho.")
+            return True # Không có gì để làm
+
+        # Dùng một dictionary để tổng hợp SỐ LƯỢNG NGUYÊN LIỆU cần trừ
+        # Key: MaNL, Value: SoLuongCanTru
+        total_deductions = {}
+
+        # 2. Lặp qua TỪNG MÓN HÀNG đã bán
+        for item in items_sold:
+            masp = item['MaSP']
+            quantity_sold = int(item['SoLuong'])
+            
+            # 3. Lấy công thức cho món hàng đó
+            recipe = fetch_query(
+                "SELECT MaNL, SoLuong FROM CongThuc WHERE MaSP = ?",
+                (masp,)
+            )
+            
+            if not recipe:
+                print(f"[LOG] Sản phẩm {masp} không có công thức, bỏ qua.")
+                continue # Chuyển sang món tiếp theo
+
+            # 4. Lặp qua TỪNG NGUYÊN LIỆU trong công thức
+            for ingredient in recipe:
+                manl = ingredient['MaNL']
+                # Lượng NL cho 1 món * số lượng món đã bán
+                try:
+                    qty_needed_per_item = Decimal(ingredient['SoLuong'])
+                    total_to_deduct = qty_needed_per_item * quantity_sold
+                except Exception:
+                    continue # Bỏ qua nếu dữ liệu công thức bị lỗi
+
+                # 5. Thêm vào dictionary tổng
+                if manl in total_deductions:
+                    total_deductions[manl] += total_to_deduct
+                else:
+                    total_deductions[manl] = total_to_deduct
+
+        # 6. Lặp qua dictionary tổng và TRỪ KHO (chỉ 1 lần cho mỗi NL)
+        if not total_deductions:
+             print(f"[LOG] Hóa đơn {mahd} không có nguyên liệu nào để trừ.")
+             return True
+             
+        for manl, total_to_deduct in total_deductions.items():
+            query_update = """
+                UPDATE NguyenLieu 
+                SET SoLuongTon = SoLuongTon - ? 
+                WHERE MaNL = ?
+            """
+            # (Chúng ta chấp nhận tồn kho âm ở giai đoạn này)
+            if not execute_query(query_update, (float(total_to_deduct), manl)):
+                # Nếu một NL bị lỗi, vẫn tiếp tục trừ các NL khác
+                print(f"[LỖI] Không thể trừ kho {total_to_deduct} cho {manl}.")
+        
+        print(f"[LOG] Đã trừ kho thành công cho Hóa đơn: {mahd}")
+        return True
+
+    except Exception as e:
+        # Hiển thị lỗi nghiêm trọng
+        messagebox.showerror("Lỗi Trừ Kho Nghiêm trọng", 
+                             f"Đã xảy ra lỗi khi tự động trừ kho cho HD {mahd}:\n{e}")
+        return False

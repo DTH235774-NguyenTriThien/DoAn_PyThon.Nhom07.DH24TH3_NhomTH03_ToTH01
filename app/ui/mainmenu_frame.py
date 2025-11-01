@@ -3,9 +3,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import os 
 from app.utils.utils import clear_window, center_window 
-from app.db import close_db_connection # Chỉ dùng khi thoát (on_exit_callback)
+from app.db import close_db_connection 
 
-# Import Pillow (PIL)
 try:
     from PIL import Image, ImageTk
     PILLOW_AVAILABLE = True
@@ -17,19 +16,19 @@ except ImportError:
 def show_main_menu(root, username_display, role, on_exit_callback=None):
     clear_window(root)
     root.title(f"Hệ thống Quản lý Quán Cà Phê - Chào {username_display} ({role})")
-    root.configure(bg="#f5e6ca") # Màu nền tổng thể
+    root.configure(bg="#f5e6ca") 
 
-    # Thiết lập kích thước cửa sổ và căn giữa
     window_width = 1500
     window_height = 720
     center_window(root, window_width, window_height, offset_y=-50)
     root.minsize(1200, 600)
     
     # =========================================================
-    # SỬA: XÓA 2 DÒNG CẤU HÌNH TẠM THỜI
-    # (Vì logic đã được chuyển vào theme.py)
+    # SỬA: XÓA CÁC DÒNG CẤU HÌNH STYLE TẠM THỜI
+    # (Vì chúng đã được chuyển vào theme.py)
     # style = ttk.Style()
-    # style.configure("Sidebar.TButton", anchor="center")
+    # style.configure("Sidebar.Active.TButton", ...)
+    # style.map("Sidebar.Active.TButton", ...)
     # =========================================================
 
     # --- Khung chính (Main Frame) chia Sidebar và Content ---
@@ -68,6 +67,9 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
     menu_buttons_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
     menu_buttons_frame.pack(fill="x", expand=True, pady=10)
 
+    # (Dictionary lưu trữ các nút - Giữ nguyên)
+    sidebar_buttons = {}
+    
     current_module_frame = None
     
     def clear_content_frame():
@@ -76,21 +78,29 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
 
     def load_module(module_name):
         
-        # --- BẮT ĐẦU KIỂM TRA PHÂN QUYỀN ---
+        # --- KIỂM TRA PHÂN QUYỀN (Giữ nguyên) ---
         is_admin = (role == 'Admin') 
         restricted_modules = {
             "Employees": "Quản lý Nhân viên",
             "Reports": "Báo cáo & Thống kê",
             "Settings": "Cấu hình hệ thống"
         }
-
         if module_name in restricted_modules and not is_admin:
             module_display_name = restricted_modules[module_name]
             messagebox.showwarning("Không có quyền", 
                                    f"Bạn không có quyền truy cập module:\n{module_display_name}",
                                    parent=root)
             return 
-        # --- KẾT THÚC KIỂM TRA PHÂN QUYỀN ---
+        
+        # --- LOGIC QUẢN LÝ NÚT ACTIVE (Giữ nguyên) ---
+        # 1. Reset TẤT CẢ các nút về style mặc định
+        for btn in sidebar_buttons.values():
+            btn.configure(style="Sidebar.TButton")
+            
+        # 2. Kích hoạt nút vừa được nhấp
+        if module_name in sidebar_buttons:
+            # (Giờ đây 'Sidebar.Active.TButton' đã được định nghĩa trong theme)
+            sidebar_buttons[module_name].configure(style="Sidebar.Active.TButton")
 
         nonlocal current_module_frame
         clear_content_frame() 
@@ -101,11 +111,18 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
                 current_module_frame.destroy()
                 current_module_frame = None
             show_dashboard_content()
+            
+            # Khi quay lại, kích hoạt lại nút Dashboard
+            for btn in sidebar_buttons.values():
+                btn.configure(style="Sidebar.TButton")
+            if "Dashboard" in sidebar_buttons:
+                sidebar_buttons["Dashboard"].configure(style="Sidebar.Active.TButton")
 
         module_container = tk.Frame(content_frame, bg="#f9fafb")
         module_container.pack(fill="both", expand=True)
         current_module_frame = module_container 
 
+        # (Logic tải module bên dưới giữ nguyên)
         if module_name == "Dashboard":
             show_dashboard_content()
         
@@ -149,42 +166,51 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
             module_frame_instance = create_settings_module(module_container, on_back_to_dashboard_callback)
             module_frame_instance.pack(fill="both",expand=True)
 
-    # (Các nút điều hướng đã xóa dấu cách ở bước trước)
-    ttk.Button(menu_buttons_frame, text="Dashboard", style="Sidebar.TButton", 
-               command=lambda: load_module("Dashboard")
-               ).pack(fill="x", pady=2, padx=10)
+    # (Logic lưu các nút vào dictionary - Giữ nguyên)
+    btn_dashboard = ttk.Button(menu_buttons_frame, text="Dashboard", style="Sidebar.TButton", 
+                               command=lambda: load_module("Dashboard"))
+    btn_dashboard.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Dashboard"] = btn_dashboard
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Nhân viên", style="Sidebar.TButton", 
-               command=lambda: load_module("Employees")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_employees = ttk.Button(menu_buttons_frame, text="Quản lý Nhân viên", style="Sidebar.TButton", 
+                               command=lambda: load_module("Employees"))
+    btn_employees.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Employees"] = btn_employees
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Sản phẩm", style="Sidebar.TButton", 
-               command=lambda: load_module("Products")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_products = ttk.Button(menu_buttons_frame, text="Quản lý Sản phẩm", style="Sidebar.TButton", 
+                              command=lambda: load_module("Products"))
+    btn_products.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Products"] = btn_products
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Công thức", style="Sidebar.TButton", 
-               command=lambda: load_module("Recipes")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_recipes = ttk.Button(menu_buttons_frame, text="Quản lý Công thức", style="Sidebar.TButton", 
+                             command=lambda: load_module("Recipes"))
+    btn_recipes.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Recipes"] = btn_recipes
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Kho", style="Sidebar.TButton", 
-               command=lambda: load_module("Ingredients")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_ingredients = ttk.Button(menu_buttons_frame, text="Quản lý Kho", style="Sidebar.TButton", 
+                                 command=lambda: load_module("Ingredients"))
+    btn_ingredients.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Ingredients"] = btn_ingredients
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Hóa đơn", style="Sidebar.TButton", 
-               command=lambda: load_module("Invoices")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_invoices = ttk.Button(menu_buttons_frame, text="Quản lý Hóa đơn", style="Sidebar.TButton", 
+                              command=lambda: load_module("Invoices"))
+    btn_invoices.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Invoices"] = btn_invoices
     
-    ttk.Button(menu_buttons_frame, text="Quản lý Khách hàng", style="Sidebar.TButton", 
-               command=lambda: load_module("Customers")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_customers = ttk.Button(menu_buttons_frame, text="Quản lý Khách hàng", style="Sidebar.TButton", 
+                               command=lambda: load_module("Customers"))
+    btn_customers.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Customers"] = btn_customers
     
-    ttk.Button(menu_buttons_frame, text="Báo cáo & Thống kê", style="Sidebar.TButton", 
-               command=lambda: load_module("Reports")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_reports = ttk.Button(menu_buttons_frame, text="Báo cáo & Thống kê", style="Sidebar.TButton", 
+                             command=lambda: load_module("Reports"))
+    btn_reports.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Reports"] = btn_reports
     
-    ttk.Button(menu_buttons_frame, text="Cấu hình hệ thống", style="Sidebar.TButton", 
-               command=lambda: load_module("Settings")
-               ).pack(fill="x", pady=2, padx=10)
+    btn_settings = ttk.Button(menu_buttons_frame, text="Cấu hình hệ thống", style="Sidebar.TButton", 
+                              command=lambda: load_module("Settings"))
+    btn_settings.pack(fill="x", pady=2, padx=10)
+    sidebar_buttons["Settings"] = btn_settings
 
 
     # --- Thông tin người dùng & Đăng xuất (ở cuối Sidebar) ---
@@ -207,7 +233,7 @@ def show_main_menu(root, username_display, role, on_exit_callback=None):
     
     def show_dashboard_content():
         clear_content_frame()
-        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ ANHKH",
+        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ",
                  font=("Segoe UI", 18, "bold"), bg="#f9fafb", fg="#4b2e05", wraplength=800, justify="center").pack(pady=80, padx=20)
         
         card_frame = tk.Frame(content_frame, bg="#f9fafb")

@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox
 import os 
 from app.utils.utils import clear_window, center_window 
 from app.db import close_db_connection 
+# SỬA 1: Import helper mới cho Dashboard
+from app.utils.report_helpers import get_dashboard_kpis
 
 try:
     from PIL import Image, ImageTk
@@ -14,7 +16,6 @@ except ImportError:
     print("Sẽ sử dụng icon text dự phòng.")
 
 def show_main_menu(root, username_display, role, on_exit_callback=None, employee_id=None):
-
     clear_window(root)
     root.title(f"Hệ thống Quản lý Quán Cà Phê - Chào {username_display} ({role})")
     root.configure(bg="#f5e6ca") 
@@ -24,22 +25,16 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     center_window(root, window_width, window_height, offset_y=-50)
     root.minsize(1200, 600)
     
-    style = ttk.Style()
-    # (Các style 'Sidebar.Active.TButton' và 'Sidebar.TButton'
-    #  đã được định nghĩa trong theme.py)
-
+    # (Style và logic Sidebar giữ nguyên)
     main_frame = tk.Frame(root, bg="#f5e6ca")
     main_frame.pack(fill="both", expand=True)
     main_frame.grid_rowconfigure(0, weight=1)
     main_frame.grid_columnconfigure(1, weight=1) 
-
     sidebar_frame = tk.Frame(main_frame, bg="#4b2e05", width=220)
     sidebar_frame.grid(row=0, column=0, sticky="nswe")
     sidebar_frame.grid_propagate(False) 
-
     logo_label = tk.Label(sidebar_frame, bg="#4b2e05")
     logo_image_tk = None 
-
     if PILLOW_AVAILABLE:
         logo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'coffee_icon.png')
         try:
@@ -52,14 +47,11 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             logo_label.config(text="☕", font=("Segoe UI Emoji", 30), fg="#d7ccc8")
     else:
         logo_label.config(text="☕", font=("Segoe UI Emoji", 30), fg="#d7ccc8")
-
     logo_label.pack(pady=(20, 0))
     logo_label.image = logo_image_tk 
     tk.Label(sidebar_frame, text="CAFE MANAGER", font=("Segoe UI", 16, "bold"), bg="#4b2e05", fg="white").pack(pady=(0, 20))
-
     menu_buttons_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
     menu_buttons_frame.pack(fill="x", expand=True, pady=10)
-
     sidebar_buttons = {}
     current_module_frame = None
     
@@ -68,7 +60,6 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             widget.destroy()
 
     def load_module(module_name):
-        
         is_admin = (role == 'Admin') 
         restricted_modules = {
             "Employees": "Quản lý Nhân viên",
@@ -109,10 +100,8 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
         if module_name == "Dashboard":
             show_dashboard_content()
         
-        # SỬA 1: THÊM LOGIC GỌI MODULE "POS"
         elif module_name == "POS":
             from app.modules.pos import create_pos_module
-            # SỬA LỖI: Truyền 'login_username' (vd: 'nv004')
             module_frame_instance = create_pos_module(module_container, employee_id, on_back_to_dashboard_callback)
             module_frame_instance.pack(fill="both", expand=True)
             
@@ -135,7 +124,6 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             
         elif module_name == "Invoices":
             from app.modules.invoices import create_invoices_module
-            # SỬA LỖI: Truyền 'login_username' (vd: 'nv004')
             module_frame_instance = create_invoices_module(
                 module_container, 
                 employee_id, 
@@ -157,72 +145,57 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             module_frame_instance = create_settings_module(module_container, on_back_to_dashboard_callback)
             module_frame_instance.pack(fill="both",expand=True)
 
-    # =========================================================
-    # SỬA 2: THÊM NÚT "BÁN HÀNG (POS)"
-    # =========================================================
+    # (Các nút sidebar giữ nguyên)
     btn_dashboard = ttk.Button(menu_buttons_frame, text="Dashboard", style="Sidebar.TButton", 
                                command=lambda: load_module("Dashboard"))
     btn_dashboard.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Dashboard"] = btn_dashboard
-    
-    # Nút POS (Mới) - Đặt ở vị trí thứ 2
     btn_pos = ttk.Button(menu_buttons_frame, text="Bán hàng (POS)", style="Sidebar.TButton", 
                            command=lambda: load_module("POS"))
     btn_pos.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["POS"] = btn_pos
-    
     btn_employees = ttk.Button(menu_buttons_frame, text="Quản lý Nhân viên", style="Sidebar.TButton", 
                                command=lambda: load_module("Employees"))
     btn_employees.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Employees"] = btn_employees
-    
     btn_products = ttk.Button(menu_buttons_frame, text="Quản lý Sản phẩm", style="Sidebar.TButton", 
                               command=lambda: load_module("Products"))
     btn_products.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Products"] = btn_products
-    
     btn_recipes = ttk.Button(menu_buttons_frame, text="Quản lý Công thức", style="Sidebar.TButton", 
                              command=lambda: load_module("Recipes"))
     btn_recipes.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Recipes"] = btn_recipes
-    
     btn_ingredients = ttk.Button(menu_buttons_frame, text="Quản lý Kho", style="Sidebar.TButton", 
                                  command=lambda: load_module("Ingredients"))
     btn_ingredients.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Ingredients"] = btn_ingredients
-    
     btn_invoices = ttk.Button(menu_buttons_frame, text="Quản lý Hóa đơn", style="Sidebar.TButton", 
                               command=lambda: load_module("Invoices"))
     btn_invoices.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Invoices"] = btn_invoices
-    
     btn_customers = ttk.Button(menu_buttons_frame, text="Quản lý Khách hàng", style="Sidebar.TButton", 
                                command=lambda: load_module("Customers"))
     btn_customers.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Customers"] = btn_customers
-    
     btn_reports = ttk.Button(menu_buttons_frame, text="Báo cáo & Thống kê", style="Sidebar.TButton", 
                              command=lambda: load_module("Reports"))
     btn_reports.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Reports"] = btn_reports
-    
     btn_settings = ttk.Button(menu_buttons_frame, text="Cấu hình hệ thống", style="Sidebar.TButton", 
                               command=lambda: load_module("Settings"))
     btn_settings.pack(fill="x", pady=2, padx=10)
     sidebar_buttons["Settings"] = btn_settings
 
-
-    # --- Thông tin người dùng & Đăng xuất ---
+    # --- Thông tin người dùng & Đăng xuất (ở cuối Sidebar) ---
     bottom_sidebar_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
     bottom_sidebar_frame.pack(side="bottom", fill="x", pady=(10, 20))
-
     tk.Label(bottom_sidebar_frame, text=f"Xin chào, {username_display}", font=("Segoe UI", 10), bg="#4b2e05", fg="#d7ccc8").pack(pady=(0, 5))
     
     def go_back_to_login():
         if messagebox.askyesno("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", parent=root):
             from app.ui.login_frame import show_login
             show_login(root, on_exit_callback=on_exit_callback) 
-
     ttk.Button(bottom_sidebar_frame, text="⬅ Đăng xuất", style="Logout.TButton",
                command=go_back_to_login).pack(pady=5, padx=10, fill="x")
 
@@ -230,9 +203,12 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     content_frame = tk.Frame(main_frame, bg="#f9fafb", relief="flat", bd=1)
     content_frame.grid(row=0, column=1, sticky="nswe", padx=10, pady=10)
     
+    # =========================================================
+    # SỬA 2: LÀM "SỐNG" HÀM show_dashboard_content
+    # =========================================================
     def show_dashboard_content():
         clear_content_frame()
-        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ ANHKH",
+        tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ",
                  font=("Segoe UI", 18, "bold"), bg="#f9fafb", fg="#4b2e05", wraplength=800, justify="center").pack(pady=80, padx=20)
         
         card_frame = tk.Frame(content_frame, bg="#f9fafb")
@@ -245,9 +221,22 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             tk.Label(card, text=title, font=("Segoe UI", 12, "bold"), bg=color, fg="white", wraplength=200).pack(pady=(15, 5))
             tk.Label(card, text=value, font=("Segoe UI", 18, "bold"), bg=color, fg="white").pack()
         
-        create_card(card_frame, "Tổng Doanh Thu Hôm Nay", "$ 5,500,000", "#1976d2") 
-        create_card(card_frame, "Đơn Hàng Mới", "15", "#4caf50")
-        create_card(card_frame, "Sản Phẩm Hết Hàng", "3", "#d32f2f")
+        # --- LẤY DỮ LIỆU THẬT ---
+        try:
+            kpi_data = get_dashboard_kpis()
+        except Exception as e:
+            messagebox.showerror("Lỗi Dashboard", f"Không thể tải KPI: {e}")
+            kpi_data = {"DoanhThuHomNay": 0, "DonHangHomNay": 0, "SPHetHang": 0}
+
+        # --- Định dạng dữ liệu ---
+        doanh_thu_text = f"{int(kpi_data.get('DoanhThuHomNay') or 0):,} đ"
+        don_hang_text = f"{int(kpi_data.get('DonHangHomNay') or 0)}"
+        het_hang_text = f"{int(kpi_data.get('SPHetHang') or 0)}"
+
+        # --- SỬA 3: Tạo thẻ với dữ liệu thật ---
+        create_card(card_frame, "Tổng Doanh Thu Hôm Nay", doanh_thu_text, "#1976d2") 
+        create_card(card_frame, "Đơn Hàng (Đã trả tiền)", don_hang_text, "#4caf50")
+        create_card(card_frame, "Sản Phẩm Hết Hàng", het_hang_text, "#d32f2f")
 
     # Hiển thị Dashboard mặc định khi vào main menu
     load_module("Dashboard")

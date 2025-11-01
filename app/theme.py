@@ -100,3 +100,18 @@ def setup_styles():
     style.configure("KPI.TFrame", background="#f9fafb", relief="solid", borderwidth=1)
     style.configure("KPI.Title.TLabel", background="#f9fafb", foreground=COLOR_PRIMARY_DARK, font=("Segoe UI", 14, "bold"))
     style.configure("KPI.Value.TLabel", background="#f9fafb", foreground="#a47148", font=("Segoe UI", 28, "bold"))
+
+    # THÊM STYLE CHO NÚT ACTIVE
+    # =========================================================
+    style.configure("Sidebar.Active.TButton",
+                    font=("Segoe UI", 11, "bold"),
+                    anchor="center",
+                    padding=(10, 12),
+                    borderwidth=0,
+                    background="#ffebee",  # Nền sáng (màu content_frame)
+                    foreground="#4b2e05") # Chữ tối (màu sidebar)
+    
+    style.map("Sidebar.Active.TButton",
+              background=[("active", "#ffebee")], # Giữ nguyên màu khi hover/active
+              foreground=[("active", "#4b2e05")])
+    # =========================================================

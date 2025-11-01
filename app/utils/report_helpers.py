@@ -2,7 +2,7 @@
 from app import db
 from datetime import datetime
 import win32print  # Thư viện pywin32
-from app.db import fetch_query # (Đảm bảo đã import)
+from app.db import fetch_query,execute_scalar # (Đảm bảo đã import)
 
 def get_kpi_data(start_date: datetime, end_date: datetime) -> dict:
     """
@@ -255,3 +255,52 @@ def print_pos_receipt(mahd):
     except Exception as e:
         # Ném lỗi lên để pos.py hiển thị
         raise e
+    
+# =========================================================
+# HELPER CHO DASHBOARD (MỚI)
+# =========================================================
+def get_dashboard_kpis():
+    """
+    Lấy 3 chỉ số KPI chính cho Dashboard (HÔM NAY).
+    1. Tổng doanh thu (chỉ các hóa đơn 'Đã thanh toán')
+    2. Tổng số đơn hàng (chỉ các hóa đơn 'Đã thanh toán')
+    3. Số sản phẩm (KHÔNG PHẢI NGUYÊN LIỆU) ở trạng thái 'Hết hàng'
+    """
+    data = {
+        "DoanhThuHomNay": 0,
+        "DonHangHomNay": 0,
+        "SPHetHang": 0
+    }
+    
+    # Lấy ngày hôm nay (an toàn cho SQL)
+    today_date = datetime.now().date()
+    
+    try:
+        # 1 & 2. Lấy Doanh thu và Số đơn hàng
+        query_revenue = """
+            SELECT 
+                SUM(ThanhTien) AS TongDoanhThu,
+                COUNT(MaHD) AS TongDonHang
+            FROM HoaDon
+            WHERE TrangThai = N'Đã thanh toán'
+              AND CONVERT(date, NgayLap) = ?
+        """
+        result_revenue = fetch_query(query_revenue, (today_date,))
+        
+        if result_revenue:
+            data["DoanhThuHomNay"] = result_revenue[0].get("TongDoanhThu") or 0
+            data["DonHangHomNay"] = result_revenue[0].get("TongDonHang") or 0
+
+        # 3. Lấy Số sản phẩm hết hàng
+        query_stock = """
+            SELECT COUNT(MaSP) 
+            FROM SanPham 
+            WHERE TrangThai = N'Hết hàng'
+        """
+        data["SPHetHang"] = execute_scalar(query_stock) or 0
+        
+        return data
+
+    except Exception as e:
+        print(f"Lỗi khi lấy KPI Dashboard: {e}")
+        return data # Trả về 0 nếu có lỗi

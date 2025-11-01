@@ -17,12 +17,7 @@ from app.utils.id_helpers import generate_next_masp
 def create_drinks_module(parent_frame, on_back_callback):
     
     # SỬA 3: Xóa các lệnh điều khiển cửa sổ (root)
-    # clear_window(root)
     setup_styles()
-    # root.title("Quản lý đồ uống")
-    # root.configure(bg="#f5e6ca")
-    # center_window(root, 1200, 700, offset_y=-60)
-    # root.minsize(1000, 550)
 
     # SỬA 4: Tạo frame chính của module, pack vào parent_frame
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")

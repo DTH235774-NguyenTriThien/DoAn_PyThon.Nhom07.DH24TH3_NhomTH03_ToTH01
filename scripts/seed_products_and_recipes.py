@@ -26,17 +26,17 @@ product_map = {}    # {'Cà Phê Sữa': 'SP002', ...}
 # =========================================================
 SEED_RECIPES = {
     # Tên sản phẩm (phải khớp 100% với tên trong CSDL của bạn)
-    "Cà Phê Sữa": [ 
-        ("Cà phê bột", 25), ("Sữa đặc", 30), ("Đá viên", 150) 
+"Cà Phê Sữa": [ 
+        ("Cà phê bột", 25), ("Sữa đặc", 30), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Cà Phê Đen": [ 
-        ("Cà phê bột", 25), ("Đường nước", 10), ("Đá viên", 150) 
+        ("Cà phê bột", 25), ("Đường nước", 10), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Bạc Xỉu": [ 
-        ("Cà phê bột", 15), ("Sữa đặc", 40), ("Sữa tươi", 20), ("Đá viên", 150) 
+        ("Cà phê bột", 15), ("Sữa đặc", 40), ("Sữa tươi", 20), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Espresso": [ 
-        ("Cà phê hạt", 18) # (Giả sử máy xay từ hạt)
+        ("Cà phê hạt", 18) 
     ],
     "Cappuccino": [
         ("Cà phê hạt", 18), ("Sữa tươi", 100)
@@ -44,47 +44,47 @@ SEED_RECIPES = {
     "Latte": [
         ("Cà phê hạt", 18), ("Sữa tươi", 150)
     ],
-    "Cà Phê Cốt Dừa": [ # Giả sử 'Bột Frappe (Base)' là bột cốt dừa
-        ("Cà phê bột", 20), ("Bột Frappe (Base)", 30), ("Sữa đặc", 20), ("Đá viên", 150)
+    "Cà Phê Cốt Dừa": [ 
+        ("Cà phê bột", 20), ("Bột Frappe (Base)", 30), ("Sữa đặc", 20), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     
     # Trà & Trà sữa
     "Trà Sữa Mochi": [ 
-        ("Trà đen", 5), ("Bột Frappe (Base)", 10), ("Sữa đặc", 20), ("Trân châu", 30), ("Đá viên", 150) 
+        ("Trà đen", 5), ("Bột Frappe (Base)", 10), ("Sữa đặc", 20), ("Trân châu", 30), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Trà Đào Cam Sả": [ 
-        ("Trà túi lọc", 1), ("Đào (ngâm)", 50), ("Cam", 20), ("Đường nước", 15), ("Đá viên", 150) 
+        ("Trà túi lọc", 1), ("Đào (ngâm)", 50), ("Cam", 0.020), ("Đường nước", 15), ("Đá viên", 0.150) # Sửa: 20->0.020, 150->0.150
     ],
     "Trà Vải": [ 
-        ("Trà lài", 5), ("Vải (ngâm)", 50), ("Đường nước", 15), ("Đá viên", 150) 
+        ("Trà lài", 5), ("Vải (ngâm)", 50), ("Đường nước", 15), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Trà Sen": [
-        ("Trà ô long", 5), ("Kem béo (Rich)", 20), ("Đường nước", 10), ("Đá viên", 150)
+        ("Trà ô long", 5), ("Kem béo (Rich)", 20), ("Đường nước", 10), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
     "Trà Gừng Mật Ong": [
-        ("Trà túi lọc", 1), ("Mật ong", 20) # (Giả sử không dùng đá)
+        ("Trà túi lọc", 1), ("Mật ong", 20) 
     ],
     "Trà Ô Long": [
-        ("Trà ô long", 5), ("Đường nước", 10), ("Đá viên", 150)
+        ("Trà ô long", 5), ("Đường nước", 10), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ],
 
     # Nước ép & Sinh tố
     "Sinh tố Bơ": [ 
-        ("Bơ", 100), ("Sữa đặc", 30), ("Sữa tươi", 20), ("Đá viên", 150) 
+        ("Bơ", 0.100), ("Sữa đặc", 30), ("Sữa tươi", 20), ("Đá viên", 0.150) # Sửa: 100->0.100, 150->0.150
     ],
     "Sinh tố Xoài": [ 
-        ("Xoài", 100), ("Sữa đặc", 20), ("Sữa tươi", 20), ("Đá viên", 150) 
+        ("Xoài", 0.100), ("Sữa đặc", 20), ("Sữa tươi", 20), ("Đá viên", 0.150) # Sửa: 100->0.100, 150->0.150
     ],
     "Nước Cam Ép": [ 
-        ("Cam", 250), ("Đường nước", 10), ("Đá viên", 100) 
+        ("Cam", 0.250), ("Đường nước", 10), ("Đá viên", 0.100) # Sửa: 250->0.250, 100->0.100
     ],
     "Nước Chanh": [
-        ("Chanh", 50), ("Đường nước", 20), ("Đá viên", 150)
+        ("Chanh", 0.050), ("Đường nước", 20), ("Đá viên", 0.150) # Sửa: 50->0.050, 150->0.150
     ],
     
     # Đá xay
     "Cookie Đá Xay": [
-        ("Bột Frappe (Base)", 20), ("Sữa tươi", 50), ("Sốt Chocolate", 10), ("Đá viên", 150)
+        ("Bột Frappe (Base)", 20), ("Sữa tươi", 50), ("Sốt Chocolate", 10), ("Đá viên", 0.150) # Sửa: 150 -> 0.150 (kg)
     ]
     
     # (Bánh và Hạt hướng dương tự động được bỏ qua vì không có trong danh sách này)

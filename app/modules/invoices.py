@@ -75,9 +75,9 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
         tree.heading(c, text=headers[c])
         # SỬA: Căn lề cho cột mới
         if c == 'TenSP':
-            tree.column(c, anchor="w", width=260)
+            tree.column(c, anchor="center", width=260)
         elif c == 'GhiChu':
-            tree.column(c, anchor="w", width=200)
+            tree.column(c, anchor="center", width=200)
         else:
             tree.column(c, anchor="center", width=120)
             
@@ -256,7 +256,7 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
         tree.column(c, anchor="center", width=120)
         
     tree.column("NgayLap", width=140)
-    tree.column("TenKH", width=150, anchor="w")
+    tree.column("TenKH", width=150, anchor="center")
     
     tree.pack(fill="both", expand=True, padx=12, pady=(6,12))
 

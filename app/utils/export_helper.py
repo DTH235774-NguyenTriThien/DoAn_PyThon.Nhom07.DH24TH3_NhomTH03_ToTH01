@@ -8,42 +8,51 @@ from tkinter import filedialog
 from app.db import fetch_query # Đảm bảo fetch_query được import
 from tkinter import messagebox
 
-def export_to_excel_from_query(cursor, query, headers, title="Dữ liệu", filename=None):
+def export_to_excel_from_query(parent_window, cursor, query, headers, title="Dữ liệu"):
     """
     Helper xuất dữ liệu từ query ra Excel với định dạng đẹp.
-    (Hàm này giữ nguyên, không thay đổi)
+    (SỬA: Đã thêm filedialog để hỏi nơi lưu)
     """
 
     try:
-        # === Tạo thư mục export ===
-        export_dir = "exports"
-        os.makedirs(export_dir, exist_ok=True)
-
+        # === SỬA: Hỏi người dùng nơi lưu file ===
         now = datetime.now()
-        filename = filename or f"{title.replace(' ', '_')}_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
-        filepath = os.path.join(export_dir, filename)
+        default_filename = f"{title.replace(' ', '_')}_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        file_path = filedialog.asksaveasfilename(
+            parent=parent_window,
+            title=f"Lưu file Excel - {title}",
+            initialfile=default_filename,
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+        )
+        
+        if not file_path:
+            return # Người dùng nhấn Hủy
+
+        # === SỬA: Xóa logic tạo thư mục 'exports' ===
+        # export_dir = "exports" ...
+        # filepath = os.path.join(export_dir, filename)
 
         # === Chạy truy vấn ===
         cursor.execute(query)
         rows = cursor.fetchall()
 
         if not rows:
-            messagebox.showinfo("Không có dữ liệu", "⚠️ Không có dữ liệu để xuất!")
+            messagebox.showinfo("Không có dữ liệu", "⚠️ Không có dữ liệu để xuất!", parent=parent_window)
             return
 
-        # === Tạo workbook ===
+        # === Tạo workbook (Giữ nguyên) ===
         wb = Workbook()
         ws = wb.active
-        ws.title = title[:31]  # Excel giới hạn 31 ký tự
+        ws.title = title[:31] 
 
-        # Header
         ws.append(headers)
 
-        # Ghi dữ liệu
         for row in rows:
             ws.append([str(item).strip() if item is not None else "" for item in row])
 
-        # Định dạng
+        # (Định dạng giữ nguyên)
         bold_font = Font(bold=True)
         center = Alignment(horizontal="center", vertical="center")
         fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
@@ -58,14 +67,16 @@ def export_to_excel_from_query(cursor, query, headers, title="Dữ liệu", file
                 max_length = max(max_length, len(str(cell.value)) if cell.value else 0)
             ws.column_dimensions[col[0].column_letter].width = max_length + 2
 
-        wb.save(filepath)
-        messagebox.showinfo("✅ Xuất thành công", f"Đã lưu file Excel:\n{filepath}")
+        # SỬA: Lưu vào đường dẫn người dùng đã chọn
+        wb.save(file_path)
+        
+        messagebox.showinfo("✅ Xuất thành công", f"Đã lưu file Excel:\n{file_path}", parent=parent_window)
 
     except Exception as e:
-        messagebox.showerror("Lỗi", f"Không thể xuất file Excel: {e}")
+        messagebox.showerror("Lỗi", f"Không thể xuất file Excel: {e}", parent=parent_window)
 
 # =========================================================
-# HELPER XUẤT HÓA ĐƠN PDF (MỚI)
+# HELPER XUẤT HÓA ĐƠN PDF
 # =========================================================
 class PDFReceipt(FPDF):
     """Lớp tùy chỉnh để thêm Header/Footer nếu cần (hiện tại chỉ để set font)"""

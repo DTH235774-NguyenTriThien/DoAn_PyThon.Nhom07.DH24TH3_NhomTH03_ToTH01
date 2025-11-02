@@ -38,6 +38,13 @@ def create_drinks_module(parent_frame, on_back_callback):
     entry_search = ttk.Entry(top, textvariable=search_var, width=30)
     entry_search.pack(side="left", padx=(0,6))
 
+    # THÊM NHÃN TRẠNG THÁI (STATUS LABEL)
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(top, textvariable=status_label_var, 
+                             font=("Arial", 10, "italic"), 
+                             background="#f5e6ca", foreground="blue")
+    status_label.pack(side="left", padx=10, pady=5)
+
     # Treeview (pack vào module_frame)
     columns = ("MaSP", "TenSP", "LoaiSP", "DonGia", "TrangThai")
     tree = ttk.Treeview(module_frame, columns=columns, show="headings", height=16)
@@ -55,6 +62,11 @@ def create_drinks_module(parent_frame, on_back_callback):
 
     # Load data function
     def load_data(keyword=None):
+
+        # Cập nhật nhãn trạng thái
+        status_label_var.set("Đang tải dữ liệu...")
+        tree.update_idletasks() # Bắt buộc
+
         try:
             for i in tree.get_children():
                 tree.delete(i)
@@ -78,7 +90,12 @@ def create_drinks_module(parent_frame, on_back_callback):
                     gia = str(row.DonGia)
                 tt = row.TrangThai or ""
                 tree.insert("", "end", values=(ma, ten, loai, gia, tt))
+
+            # Cập nhật nhãn khi thành công
+            status_label_var.set(f"Đã tải {len(rows)} sản phẩm.")
         except Exception as e:
+            # Cập nhật nhãn khi lỗi
+            status_label_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu: {e}")
 
     # Button on top frame 

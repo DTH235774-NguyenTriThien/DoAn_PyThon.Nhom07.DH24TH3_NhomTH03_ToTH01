@@ -45,6 +45,13 @@ def create_customers_module(parent_frame, on_back_callback):
     entry_search = ttk.Entry(top_frame, textvariable=search_var, width=40)
     entry_search.pack(side="left", padx=5)
 
+     #   THÊM NHÃN TRẠNG THÁI (STATUS LABEL)
+    status_label_var = tk.StringVar(value="")
+    status_label = ttk.Label(top_frame, textvariable=status_label_var, 
+                             font=("Arial", 10, "italic"), 
+                             background="#f5e6ca", foreground="blue")
+    status_label.pack(side="left", padx=10, pady=5)
+
     # ====== BẢNG HIỂN THỊ ======
     headers_vn = {
         "MaKH": "Mã KH",
@@ -64,6 +71,11 @@ def create_customers_module(parent_frame, on_back_callback):
 
     # ====== LOAD DATA ======
     def load_data(keyword=None):
+
+        # Cập nhật nhãn trạng thái
+        status_label_var.set("Đang tải dữ liệu...")
+        tree.update_idletasks() 
+
         """Tải danh sách khách hàng, hỗ trợ tìm kiếm theo nhiều cột"""
         for item in tree.get_children():
             tree.delete(item)
@@ -103,8 +115,12 @@ def create_customers_module(parent_frame, on_back_callback):
                     tree.item(item_id, tags=("highlight",))
 
             tree.tag_configure("highlight", background="#fff3cd", font=("Arial", 11, "bold"))
+            #Cập nhật nhãn khi thành công
+            status_label_var.set(f"Đã tải {len(rows)} khách hàng.")
 
         except Exception as e:
+            #Cập nhật nhãn khi lỗi
+            status_label_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải danh sách khách hàng: {e}")
 
     # ====== NÚT CHỨC NĂNG ======

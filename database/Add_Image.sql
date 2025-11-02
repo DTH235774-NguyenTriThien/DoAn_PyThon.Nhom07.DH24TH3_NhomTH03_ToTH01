@@ -69,7 +69,7 @@ GO
 
 
 UPDATE SanPham
-SET ImagePath = 'app/assets/products/tra_sen.png'
+SET ImagePath = 'app/assets/products/tra_sen.png' 
 WHERE TenSP = N'Trà Sen';
 GO
 

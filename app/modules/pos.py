@@ -10,7 +10,7 @@ from app.utils.report_helpers import print_pos_receipt
 import configparser
 import os 
 
-# SỬA 1: Import hàm căn giữa pop-up
+# SỬA 1: Import hàm căn giữa (từ bước trước)
 from app.utils.utils import center_window_relative
 
 try:
@@ -58,7 +58,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     main_content_frame.grid_columnconfigure(1, weight=2) # Cột 2: Giỏ hàng/Thanh toán
 
     # =========================================================
-    # CỘT 2: GIỎ HÀNG & ĐIỀU KHIỂN
+    # CỘT 2: GIỎ HÀNG & ĐIỀU KHIỂN (Xếp chồng)
     # =========================================================
     
     controls_frame = tk.Frame(main_content_frame, bg="#f5e6ca")
@@ -69,8 +69,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     controls_frame.grid_rowconfigure(2, weight=0) # Hàng 2: Hành động
 
     # --- Khung Giỏ hàng (Cột 2, Hàng 0) ---
-    cart_frame_label = " 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) "
-    cart_frame = ttk.LabelFrame(controls_frame, text=cart_frame_label)
+    cart_frame = ttk.LabelFrame(controls_frame, text=" 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) ")
     cart_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
     cart_frame.grid_rowconfigure(0, weight=1) 
     cart_frame.grid_rowconfigure(1, weight=0) 
@@ -160,15 +159,12 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     # =========================================================
     # CÁC HÀM XỬ LÝ GIỎ HÀNG (Giữ nguyên)
     # =========================================================
-    
     def add_item_to_cart(product_info, notes):
         tree_cart.counter += 1
         new_iid = f"item_{tree_cart.counter}" 
-
         masp = product_info['MaSP']
         tensp = product_info['TenSP']
         dongia = Decimal(product_info['DonGia'])
-        
         item_to_increment = None
         if not notes: 
             for iid in tree_cart.get_children():
@@ -176,7 +172,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 if tags and tags[0] == masp and tags[1] == "":
                     item_to_increment = iid
                     break
-        
         if item_to_increment:
             tree_cart.selection_set(item_to_increment) 
             tree_cart.focus(item_to_increment)         
@@ -187,10 +182,8 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             if notes:
                 tensp_display = f"{tensp} ({notes})" 
             values = (tensp_display, sl, f"{int(dongia):,}", notes)
-            
             tags = (masp, notes)
             tree_cart.insert("", "end", iid=new_iid, values=values, tags=tags)
-        
         update_totals() 
 
     def increment_quantity():
@@ -241,16 +234,14 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     # =========================================================
-    # SỬA 2: CĂN GIỮA CỬA SỔ TÙY CHỌN (MODIFIERS)
+    # HÀM TÙY CHỌN (MODIFIERS) (SỬA: Đã căn giữa)
     # =========================================================
     def show_options_window(product_info):
         win = tk.Toplevel(module_frame)
         win.title(f"Tùy chọn cho: {product_info['TenSP']}")
         win.configure(bg="#f8f9fa")
         
-        # SỬA: Xóa win.geometry, win.transient, win.grab_set
-        # Thay thế bằng hàm helper (đã import ở đầu file)
-        # Hàm này tự động căn giữa so với `module_frame` (cửa sổ cha)
+        # SỬA: Gọi hàm căn giữa
         center_window_relative(win, module_frame, 350, 200)
         
         form = tk.Frame(win, bg="#f8f9fa", padx=15, pady=10)
@@ -305,22 +296,14 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
-        
         values = tree_cart.item(selected_iid, "values")
         tensp_display, sl_hien_tai, dongia_str, notes = values
         sl_hien_tai = int(sl_hien_tai)
-
         new_qty = simpledialog.askinteger(
-            "Sửa Số Lượng",
-            f"Nhập số lượng mới cho:\n{tensp_display}",
-            parent=module_frame,
-            initialvalue=sl_hien_tai,
-            minvalue=0 
+            "Sửa Số Lượng", f"Nhập số lượng mới cho:\n{tensp_display}",
+            parent=module_frame, initialvalue=sl_hien_tai, minvalue=0 
         )
-
-        if new_qty is None: 
-            return
-
+        if new_qty is None: return
         if new_qty == 0:
             remove_item_from_cart()
         elif new_qty > 0:
@@ -361,7 +344,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     
 
     # =========================================================
-    # CỘT 1: DANH SÁCH SẢN PHẨM (MENU) (Giữ nguyên)
+    # CỘT 1: DANH SÁCH SẢN PHẨM (MENU)
     # =========================================================
     product_frame = ttk.LabelFrame(main_content_frame, text=" 1. Chọn Món ")
     product_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
@@ -380,9 +363,39 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     scrollable_frame = tk.Frame(canvas, bg="white")
     canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
     scrollable_frame.image_references = [] 
+    
     def configure_scrollregion(event):
         canvas.configure(scrollregion=canvas.bbox("all"))
     scrollable_frame.bind("<Configure>", configure_scrollregion)
+
+
+    # SỬA 3: THÊM CÁC HÀM HỖ TRỢ LĂN CHUỘT (MOUSEWHEEL)
+    def _on_mousewheel(event):
+        """Hàm xử lý sự kiện lăn chuột, cuộn canvas."""
+        # Logic cho Windows/macOS (dùng event.delta)
+        if event.delta:
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        # Logic cho Linux (dùng event.num)
+        else:
+            if event.num == 5:
+                canvas.yview_scroll(1, "units")
+            elif event.num == 4:
+                canvas.yview_scroll(-1, "units")
+
+    def _bind_mousewheel_all(event):
+        """Gán sự kiện lăn chuột cho toàn bộ cửa sổ khi chuột đi vào menu"""
+        # (Dùng bind_all để bắt sự kiện ngay cả khi trỏ chuột lên nút bấm)
+        module_frame.bind_all("<MouseWheel>", _on_mousewheel)
+
+    def _unbind_mousewheel_all(event):
+        """Hủy gán sự kiện lăn chuột khi chuột rời khỏi menu"""
+        module_frame.unbind_all("<MouseWheel>")
+    
+    # Gán sự kiện <Enter> (vào) và <Leave> (ra) cho toàn bộ Cột 1
+    # (bao gồm cả Canvas, Scrollbar, và Frame)
+    product_frame.bind("<Enter>", _bind_mousewheel_all)
+    product_frame.bind("<Leave>", _unbind_mousewheel_all)
+
 
     def load_product_buttons(parent):
         parent.image_references.clear()
@@ -498,10 +511,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             return
 
         mahd = generate_next_mahd(db.cursor)
-        
-        # SỬA 4: Sửa lỗi NameError (dùng employee_id)
         manv = employee_id 
-        
         makh = current_customer_info.get("MaKH") 
         
         tong_truoc_giam_gia_str = total_var.get().replace(",", "").split(" ")[0]
@@ -567,7 +577,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
 
             messagebox.showinfo("Thành công", f"Đã thanh toán thành công hóa đơn {mahd}.", parent=module_frame)
             
-            if messagebox.askyesno("In hóa đơn", "Bạn có muốn in hóaD hóa đơn không?", parent=module_frame):
+            if messagebox.askyesno("In hóa đơn", "Bạn có muốn in hóa đơn không?", parent=module_frame):
                 try:
                     print_pos_receipt(mahd) 
                 except Exception as print_e:

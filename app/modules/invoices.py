@@ -4,12 +4,12 @@ from tkinter import ttk, messagebox, simpledialog
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
+import configparser # Sửa: Thêm import này
 
 # SỬA 1: Import hàm in (từ POS) và helper căn giữa (từ utils)
 from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
 from app.utils.utils import center_window_relative 
-# SỬA: Đổi tên hàm import cho đúng (từ lần trước)
 from app.utils.export_helper import export_invoice_to_pdf
 from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
@@ -21,8 +21,7 @@ from app.utils.treeview_helpers import fill_treeview_chunked
 # (Hàm update_customer_points giữ nguyên)
 def update_customer_points(makh, tongtien):
     try:
-        # SỬA: Thêm import configparser
-        import configparser
+        # Sửa: Thêm import configparser
         config = configparser.ConfigParser()
         config.read('config.ini', encoding='utf-8')
         vnd_per_point = config.getint('BusinessLogic', 'VND_PER_POINT', fallback=10000)
@@ -101,7 +100,6 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
 
             def on_load_complete():
                 try:
-                    # SỬA: Lấy ThanhTien (tổng cuối) thay vì TongTien
                     tong = db.execute_scalar("SELECT ThanhTien FROM HoaDon WHERE MaHD=?", (mahd,)) or 0
                     win.title(f"Chi tiết Hóa đơn {mahd} - Tổng: {int(tong):,} đ")
                     status_label_var_detail.set(f"Đã tải {len(rows)} mặt hàng.")
@@ -186,7 +184,6 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
     cols = ("MaHD", "NgayLap", "MaNV", "TenKH", "TongTien", "GiamGia", "ThanhTien", "TrangThai", "GhiChu")
     tree = ttk.Treeview(module_frame, columns=cols, show="headings", height=16)
     
-    # SỬA: Sửa lại headers cho đúng (từ code cũ của bạn)
     headers = {
         "MaHD": "Mã HD", "NgayLap": "Ngày lập", "MaNV": "Mã NV",
         "TenKH": "Khách hàng", "TongTien": "Tổng tiền (đ)", "GiamGia": "Giảm giá (đ)", 
@@ -196,12 +193,12 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
         tree.heading(c, text=headers[c])
         tree.column(c, anchor="center", width=120)
     tree.column("NgayLap", width=140)
-    tree.column("TenKH", width=150, anchor="w")
+    tree.column("TenKH", width=150, anchor="center")
     
     tree.pack(fill="both", expand=True, padx=12, pady=(6,12))
     
     # =========================================================
-    # SỬA LỖI: THÊM LẠI NỘI DUNG CHO `load_data`
+    # SỬA LỖI: HIỂN THỊ "KHÁCH VÃNG LAI"
     # =========================================================
     def load_data(tree_widget, status_var, keyword=None):
         status_var.set("Đang tải...")
@@ -227,14 +224,16 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
             tree_data = []
             for r in rows:
                 ngay = r["NgayLap"].strftime("%d/%m/%Y %H:%M") if r["NgayLap"] else ""
-                # Sửa: Dùng ThanhTien cho cột tổng (an toàn hơn)
                 tong = f"{int(r['TongTien']):,}" if r['TongTien'] is not None else "0"
                 giam = f"{int(r['GiamGia']):,}" if r['GiamGia'] is not None else "0"
                 thu = f"{int(r['ThanhTien']):,}" if r['ThanhTien'] is not None else "0"
                 
+                # SỬA LỖI: Nếu r["TenKH"] là NULL (trống), thì hiển thị "Khách vãng lai"
+                ten_kh = r["TenKH"] if r["TenKH"] else "Khách vãng lai"
+                
                 values_tuple = (
                     r["MaHD"].strip(), ngay, r["MaNV"].strip(),
-                    r["TenKH"] if r["TenKH"] else "",
+                    ten_kh, # <-- Đã sửa
                     tong, giam, thu,
                     r["TrangThai"] if r["TrangThai"] else "",
                     r["GhiChu"] if r["GhiChu"] else ""
@@ -263,9 +262,7 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
         mahd = selected[0] 
 
         try:
-            # Truyền 'module_frame' làm cửa sổ cha cho filedialog
             export_invoice_to_pdf(mahd, module_frame)
-            
             messagebox.showinfo("Thành công", f"Đã xuất hóa đơn {mahd} ra file PDF.")
         except Exception as e:
             messagebox.showerror("Lỗi Xuất PDF", f"Không thể tạo file PDF:\n{e}", parent=module_frame)

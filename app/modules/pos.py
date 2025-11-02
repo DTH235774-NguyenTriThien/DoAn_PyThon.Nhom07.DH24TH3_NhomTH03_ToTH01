@@ -10,6 +10,9 @@ from app.utils.report_helpers import print_pos_receipt
 import configparser
 import os 
 
+# SỬA 1: Import hàm căn giữa pop-up
+from app.utils.utils import center_window_relative
+
 try:
     from PIL import Image, ImageTk
     PILLOW_AVAILABLE = True
@@ -83,8 +86,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     cart_scroll = ttk.Scrollbar(cart_frame, orient="vertical", command=tree_cart.yview)
     cart_scroll.grid(row=0, column=1, sticky="ns")
     tree_cart.configure(yscrollcommand=cart_scroll.set)
-    
-    # SỬA 2: Gán biến đếm (counter) vào tree_cart
     tree_cart.counter = 0
 
     # --- Khung Tổng tiền ---
@@ -130,6 +131,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     btn_recalc.grid(row=1, column=2, sticky="ew", padx=5, pady=5, ipady=8) 
 
 
+    # (Toàn bộ các hàm logic bên dưới không thay đổi)
     # =========================================================
     # HÀM CẬP NHẬT TỔNG TIỀN (Giữ nguyên)
     # =========================================================
@@ -156,15 +158,13 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         final_total_var.set(f"{int(final_total):,} đ")
 
     # =========================================================
-    # CÁC HÀM XỬ LÝ GIỎ HÀNG
+    # CÁC HÀM XỬ LÝ GIỎ HÀNG (Giữ nguyên)
     # =========================================================
     
-    # SỬA 1: Xóa dòng định nghĩa _cart_item_counter = 0 ở đây
-
     def add_item_to_cart(product_info, notes):
-        """Thêm 1 sản phẩm vào giỏ hàng VỚI GHI CHÚ."""
-        # SỬA 3: Xóa 'nonlocal _cart_item_counter'
-        
+        tree_cart.counter += 1
+        new_iid = f"item_{tree_cart.counter}" 
+
         masp = product_info['MaSP']
         tensp = product_info['TenSP']
         dongia = Decimal(product_info['DonGia'])
@@ -187,10 +187,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             if notes:
                 tensp_display = f"{tensp} ({notes})" 
             values = (tensp_display, sl, f"{int(dongia):,}", notes)
-            
-            # SỬA 3: Sử dụng counter của tree_cart
-            tree_cart.counter += 1
-            new_iid = f"item_{tree_cart.counter}" 
             
             tags = (masp, notes)
             tree_cart.insert("", "end", iid=new_iid, values=values, tags=tags)
@@ -245,15 +241,17 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     # =========================================================
-    # HÀM TÙY CHỌN (MODIFIERS) (Giữ nguyên)
+    # SỬA 2: CĂN GIỮA CỬA SỔ TÙY CHỌN (MODIFIERS)
     # =========================================================
     def show_options_window(product_info):
         win = tk.Toplevel(module_frame)
         win.title(f"Tùy chọn cho: {product_info['TenSP']}")
-        win.geometry("350x200")
         win.configure(bg="#f8f9fa")
-        win.transient(module_frame) 
-        win.grab_set() 
+        
+        # SỬA: Xóa win.geometry, win.transient, win.grab_set
+        # Thay thế bằng hàm helper (đã import ở đầu file)
+        # Hàm này tự động căn giữa so với `module_frame` (cửa sổ cha)
+        center_window_relative(win, module_frame, 350, 200)
         
         form = tk.Frame(win, bg="#f8f9fa", padx=15, pady=10)
         form.pack(fill="both", expand=True)
@@ -350,7 +348,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     module_frame.bind_all("<F12>", on_f12_press)
     
     def _cleanup_hotkeys(event=None):
-        #print("Đang dọn dẹp phím tắt F9, F12 của module POS...")
         module_frame.unbind_all("<F9>")
         module_frame.unbind_all("<F12>")
         module_frame.unbind("<Destroy>")
@@ -419,6 +416,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
                 except Exception as e:
+                    print(f"Lỗi xử lý ảnh {img_path}: {e}")
                     img = Image.open(placeholder_path) 
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
@@ -500,7 +498,10 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             return
 
         mahd = generate_next_mahd(db.cursor)
+        
+        # SỬA 4: Sửa lỗi NameError (dùng employee_id)
         manv = employee_id 
+        
         makh = current_customer_info.get("MaKH") 
         
         tong_truoc_giam_gia_str = total_var.get().replace(",", "").split(" ")[0]
@@ -566,7 +567,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
 
             messagebox.showinfo("Thành công", f"Đã thanh toán thành công hóa đơn {mahd}.", parent=module_frame)
             
-            if messagebox.askyesno("In hóa đơn", "Bạn có muốn in hóa đơn không?", parent=module_frame):
+            if messagebox.askyesno("In hóa đơn", "Bạn có muốn in hóaD hóa đơn không?", parent=module_frame):
                 try:
                     print_pos_receipt(mahd) 
                 except Exception as print_e:

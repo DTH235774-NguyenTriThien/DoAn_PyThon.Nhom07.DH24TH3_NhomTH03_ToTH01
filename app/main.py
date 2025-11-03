@@ -2,7 +2,6 @@
 import tkinter as tk
 from app.ui.login_frame import show_login
 
-# SỬA 1: Import db (để đóng kết nối) và matplotlib (để đóng biểu đồ)
 from app import db
 try:
     import matplotlib.pyplot as plt
@@ -19,9 +18,6 @@ def main():
     root.geometry("900x600")
     root.configure(bg="#f5f0e1")
 
-    # =========================================================
-    # SỬA 2: THÊM HÀM DỌN DẸP KHI THOÁT (FIX LỖI TREO TERMINAL)
-    # =========================================================
     def on_closing():
         """
         Hàm này được gọi khi người dùng nhấn nút "X" của cửa sổ.
@@ -30,7 +26,6 @@ def main():
         try:
             # 1. Đóng kết nối CSDL
             if db and db.conn:
-                # SỬA LỖI: Gọi đúng tên hàm (thêm '_db')
                 db.close_db_connection() 
                 
             # 2. Đóng tất cả biểu đồ matplotlib
@@ -38,15 +33,13 @@ def main():
                 plt.close('all')
                 
         except Exception as e:
-            # (Xóa 'return' để đảm bảo finally luôn chạy)
-            print(f"Lỗi khi đóng tài nguyên: {e}") 
+            pass # Bỏ qua bất kỳ lỗi nào xảy ra trong quá trình đóng
         finally:
             # 3. Phá hủy cửa sổ root (thoát ứng dụng)
             root.destroy()
 
     # Ghi đè hành vi mặc định của nút "X" (WM_DELETE_WINDOW)
     root.protocol("WM_DELETE_WINDOW", on_closing)
-    # =========================================================
     
     # Truyền hàm 'on_closing' vào login_frame
     show_login(root, on_exit_callback=on_closing)

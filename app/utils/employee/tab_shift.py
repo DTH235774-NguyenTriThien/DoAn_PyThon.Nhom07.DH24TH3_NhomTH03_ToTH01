@@ -11,22 +11,21 @@ from app.utils.business_helpers import safe_delete, validate_shift_time
 from app.utils.time_helpers import parse_time
 from app.utils.id_helpers import generate_next_maca
 from app.utils.treeview_helpers import fill_treeview_chunked
+# Sửa lỗi Căn giữa: Import helper
+from app.utils.utils import center_window_relative
 
-# SỬA 1: Thay đổi tham số hàm
 def build_tab(parent, on_back_callback=None):
-    """Tab Ca làm việc — Quản lý danh sách ca và CRUD cơ bản"""
+    """Tab 2 - Xây dựng giao diện Ca làm việc"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
 
-    # ===== THANH CÔNG CỤ (Layout đã đồng bộ) =====
+    # --- Thanh chức năng ---
     top_frame = tk.Frame(parent, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10)
 
-    # --- Frame Nút (Bên phải) ---
     btn_frame = tk.Frame(top_frame, bg="#f9fafb")
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
 
-    # --- Frame Lọc (Bên trái) ---
     filter_frame = tk.Frame(top_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
 
@@ -40,7 +39,7 @@ def build_tab(parent, on_back_callback=None):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-    # ===== TREEVIEW =====
+    # --- Treeview ---
     tree_frame = tk.Frame(parent, bg="#f5e6ca")
     tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
     
@@ -53,8 +52,8 @@ def build_tab(parent, on_back_callback=None):
         tree.column(col, anchor="center", width=180)
     tree.pack(fill="both", expand=True)
 
-    # ===== HÀM LOAD DATA (Đã chuẩn hóa) =====
     def load_data(tree_widget, status_var, keyword=None):
+        """Tải và hiển thị dữ liệu Ca làm."""
         status_var.set("Đang tải dữ liệu...")
         tree_widget.update_idletasks() 
         query = "SELECT MaCa, TenCa, GioBatDau, GioKetThuc FROM CaLam"
@@ -86,54 +85,52 @@ def build_tab(parent, on_back_callback=None):
             status_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu ca làm: {e}")
 
-    # ===== CÁC NÚT CHỨC NĂNG (trong btn_frame) =====
+    # --- Nút chức năng ---
     def refresh_data():
         load_data(tree, status_label_var, search_var.get().strip())
 
     ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
                command=refresh_data).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="➕ Thêm", style="Add.TButton",
-               command=lambda: add_shift(refresh_data)).pack(side="left", padx=5)
+               command=lambda: add_shift(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="✏️ Sửa", style="Edit.TButton",
                command=lambda: edit_shift(tree, refresh_data)).pack(side="left", padx=5)
     ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
                command=lambda: delete_shift(tree, refresh_data)).pack(side="left", padx=5)
     
-    # SỬA 2: Sửa nút "Quay lại"
     if on_back_callback:
         ttk.Button(btn_frame, text="⬅ Quay lại Dashboard", style="Close.TButton",
                    command=on_back_callback).pack(side="left", padx=5)
 
-    # ===== SỰ KIỆN TÌM KIẾM REALTIME =====
+    # --- Gán sự kiện ---
     def on_search_change(event=None):
         keyword = search_var.get().strip()
         load_data(tree, status_label_var, keyword)
     entry_search.bind("<KeyRelease>", on_search_change)
 
-    # ===== DOUBLE CLICK TO EDIT =====
     def on_double_click(_):
         sel = tree.selection()
         if sel:
             edit_shift(tree, refresh_data)
     tree.bind("<Double-1>", on_double_click)
     
-    # Tải lần đầu
     refresh_data()
 
 # ==============================================================
-#  HÀM CRUD (Giữ nguyên logic, không thay đổi)
-# =SỬA LỖI TÊN NÚT LƯU 
+#  HÀM CRUD (POP-UP)
 # ==============================================================
-def add_shift(refresh):
+def add_shift(parent_tree, refresh):
+    """Mở cửa sổ pop-up để thêm Ca làm mới."""
     win = tk.Toplevel()
     win.title("➕ Thêm ca làm")
-    win.geometry("420x320")
     win.configure(bg="#f8f9fa")
+    
+    # Sửa lỗi Căn giữa
+    center_window_relative(win, parent_tree.master, 420, 320)
 
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=20, pady=15, fill="both", expand=True)
 
-    # (Code UI cho form giữ nguyên)
     ttk.Label(form, text="Tên Ca", font=("Arial", 11), background="#f8f9fa").grid(row=0, column=0, sticky="w", padx=8, pady=6)
     ca_options = ["Sáng", "Chiều", "Tối", "Khác"]
     ca_var = tk.StringVar(value="Sáng")
@@ -146,12 +143,14 @@ def add_shift(refresh):
     cb_ketthuc = ttk.Combobox(form, values=time_options, font=("Arial", 11))
     cb_batdau.grid(row=1, column=1, padx=8, pady=6, sticky="ew")
     cb_ketthuc.grid(row=2, column=1, padx=8, pady=6, sticky="ew")
+    
     def auto_fill_time(event=None):
         ca = ca_var.get().lower()
         if ca == "sáng": cb_batdau.set("07:00"); cb_ketthuc.set("11:00")
         elif ca == "chiều": cb_batdau.set("13:00"); cb_ketthuc.set("17:00")
         elif ca == "tối": cb_batdau.set("17:00"); cb_ketthuc.set("22:00")
         else: cb_batdau.set(""); cb_ketthuc.set("")
+        
     cb_tenca.bind("<<ComboboxSelected>>", auto_fill_time)
     auto_fill_time() 
 
@@ -173,12 +172,12 @@ def add_shift(refresh):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể thêm ca làm: {e}", parent=win)
 
-    # Sửa tên nút (bị lỗi copy-paste từ tab_info)
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: submit()).pack(ipadx=10, ipady=5)
 
 def edit_shift(tree, refresh):
+    """Mở cửa sổ pop-up để sửa Ca làm."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn ca làm cần sửa!"); return
@@ -186,13 +185,14 @@ def edit_shift(tree, refresh):
     _, tenca, giobd, giokt = values 
     win = tk.Toplevel()
     win.title(f"✏️ Sửa ca làm {maca}")
-    win.geometry("420x320")
     win.configure(bg="#f8f9fa")
+    
+    # Sửa lỗi Căn giữa
+    center_window_relative(win, tree.master, 420, 320)
 
     form = tk.Frame(win, bg="#f8f9fa")
     form.pack(padx=20, pady=15, fill="both", expand=True)
 
-    # (Code UI cho form giữ nguyên)
     ttk.Label(form, text=f"Mã Ca: {maca}", background="#f8f9fa", font=("Arial", 11, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=6)
     ttk.Label(form, text="Tên Ca", font=("Arial", 11), background="#f8f9fa").grid(row=1, column=0, sticky="w", padx=8, pady=6)
     ca_options = ["Sáng", "Chiều", "Tối", "Khác"]
@@ -206,11 +206,13 @@ def edit_shift(tree, refresh):
     cb_ketthuc = ttk.Combobox(form, values=time_options, font=("Arial", 11)); cb_ketthuc.set(giokt)
     cb_batdau.grid(row=2, column=1, padx=8, pady=6, sticky="ew")
     cb_ketthuc.grid(row=3, column=1, padx=8, pady=6, sticky="ew")
+    
     def auto_fill_time(event=None):
         ca = ca_var.get().lower()
         if ca == "sáng": cb_batdau.set("07:00"); cb_ketthuc.set("11:00")
         elif ca == "chiều": cb_batdau.set("13:00"); cb_ketthuc.set("17:00")
         elif ca == "tối": cb_batdau.set("17:00"); cb_ketthuc.set("22:00")
+        
     cb_tenca.bind("<<ComboboxSelected>>", auto_fill_time)
 
     def save():
@@ -230,12 +232,12 @@ def edit_shift(tree, refresh):
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể cập nhật ca làm: {e}", parent=win)
     
-    # Sửa tên nút (bị lỗi copy-paste từ tab_info)
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
 
 def delete_shift(tree, refresh):
+    """Xóa Ca làm."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần xóa!"); return

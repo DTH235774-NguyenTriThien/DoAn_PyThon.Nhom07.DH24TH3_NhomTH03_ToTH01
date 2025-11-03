@@ -5,33 +5,29 @@ from datetime import datetime
 from app import db
 import os
 from openpyxl import Workbook
-from datetime import datetime
+# (datetime đã được import ở trên)
 
 # Imports
 from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
-# SỬA 1: Import helper mới (đã sửa)
 from app.utils.export_helper import export_to_excel_from_query
 from app.utils.business_helpers import safe_delete 
 from app.utils.treeview_helpers import fill_treeview_chunked 
 
 def build_tab(parent, on_back_callback):
-    """Tab Bảng lương — quản lý lương nhân viên"""
+    """Tab 4 - Xây dựng giao diện Bảng lương"""
     setup_styles()
     parent.configure(bg="#f5e6ca")
 
-    # ===== THANH CÔNG CỤ (TOP FRAME) =====
     top_frame = tk.Frame(parent, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10) 
 
-    # --- Frame NÚT CHỨC NĂNG (Bên phải) ---
     btn_frame = tk.Frame(top_frame, bg="#f9fafb")
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
     ttk.Button(btn_frame, text="🔄 Tải lại", style="Close.TButton",
              command=lambda: refresh_data()).pack(side="left", padx=5)
     
-    # SỬA 2: Truyền 'parent' vào hàm export_salary
     ttk.Button(btn_frame, text="💾 Xuất Excel", style="Add.TButton",
              command=lambda: export_salary(parent)).pack(side="left", padx=5)
 
@@ -47,7 +43,6 @@ def build_tab(parent, on_back_callback):
     ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
              command=on_back_callback).pack(side="left", padx=5)
 
-    # --- Frame LỌC (Bên trái, tự mở rộng) ---
     filter_frame = tk.Frame(top_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
 
@@ -61,7 +56,6 @@ def build_tab(parent, on_back_callback):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-    # ===== TREEVIEW =====
     columns = ["MaLuong", "MaNV", "HoTen", "Thang", "Nam", "TongGio", "LuongThucTe", "TrangThai"]
     headers = {
         "MaLuong": "Mã Lương", "MaNV": "Mã NV", "HoTen": "Họ tên",
@@ -75,8 +69,8 @@ def build_tab(parent, on_back_callback):
         tree.column(col, anchor="center", width=120)
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ===== HÀM TẢI DỮ LIỆU =====
     def load_data(tree_widget, status_var, keyword=None):
+        """Tải và hiển thị dữ liệu bảng lương."""
         status_var.set("Đang tải dữ liệu...")
         tree_widget.update_idletasks() 
 
@@ -121,7 +115,6 @@ def build_tab(parent, on_back_callback):
             status_var.set("Lỗi tải dữ liệu!")
             messagebox.showerror("Lỗi", f"Không thể tải bảng lương: {e}")
 
-    # ===== CÁC HÀM TIỆN ÍCH =====
     def refresh_data():
         keyword = search_var.get().strip()
         load_data(tree, status_label_var, keyword)
@@ -136,19 +129,29 @@ def build_tab(parent, on_back_callback):
 #  HÀM CRUD VÀ NGHIỆP VỤ
 # ==============================================================
 def calculate_or_update_salary(refresh_func):
-    # ... (Code hàm này giữ nguyên) ...
+    """
+    Tính toán hoặc Cập nhật bảng lương hàng loạt cho tháng hiện tại.
+    - INSERT nếu chưa có.
+    - UPDATE nếu đã có VÀ Trạng thái = 'Chưa trả'.
+    - Bỏ qua nếu Trạng thái = 'Đã trả'.
+    """
     try:
         now = datetime.now()
         thang, nam = now.month, now.year
+
         nv_query = "SELECT MaNV, LuongCoBan FROM NhanVien WHERE TrangThai=N'Đang làm'"
         nvs = db.fetch_query(nv_query) 
+
         if not nvs:
             messagebox.showinfo("Thông báo", "Không có nhân viên nào 'Đang làm' để tính lương.")
             return
+
         count_processed = 0
+        
         for nv in nvs:
             manv = nv["MaNV"].strip()
             luongcb = nv["LuongCoBan"]
+
             sum_query = """
                 SELECT SUM(DATEDIFF(MINUTE, ClockIn, ClockOut)) / 60.0
                 FROM ChamCong
@@ -156,6 +159,8 @@ def calculate_or_update_salary(refresh_func):
                       AND ClockIn IS NOT NULL AND ClockOut IS NOT NULL
             """
             tong_gio = db.execute_scalar(sum_query, (manv, thang, nam)) or 0.0 
+            
+            # (Giả định LuongCoBan là LƯƠNG THEO GIỜ)
             luong_thuc_te = float(luongcb or 0) * float(tong_gio)
             
             check_query = "SELECT MaLuong, TrangThai FROM BangLuong WHERE MaNV=? AND Thang=? AND Nam=?"
@@ -164,6 +169,7 @@ def calculate_or_update_salary(refresh_func):
             if existing_record:
                 current_status = existing_record[0]["TrangThai"]
                 maluong = existing_record[0]["MaLuong"]
+                
                 if current_status == 'Chưa trả':
                     update_query = """
                         UPDATE BangLuong 
@@ -181,34 +187,41 @@ def calculate_or_update_salary(refresh_func):
                 """
                 if db.execute_query(insert_query, (manv, thang, nam, tong_gio, luong_thuc_te)):
                     count_processed += 1
+
         messagebox.showinfo("✅ Thành công", f"Đã tính toán/cập nhật lương cho {count_processed} nhân viên.")
         refresh_func()
+
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể tính lương: {e}")
 
 
 def edit_status(tree, refresh):
-    # ... (Code hàm này giữ nguyên) ...
+    """Cập nhật trạng thái 'Đã trả' / 'Chưa trả'"""
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần cập nhật!")
         return
+
     maluong = sel[0] 
     values = tree.item(maluong)["values"]
     trangthai = values[-1] 
+    
     new_state = "Đã trả" if trangthai == "Chưa trả" else "Chưa trả"
+
     if execute_query("UPDATE BangLuong SET TrangThai=? WHERE MaLuong=?", (new_state, maluong)):
         messagebox.showinfo("✅ Thành công", f"Đã cập nhật trạng thái lương {maluong}.")
         refresh()
 
 
 def delete_salary(tree, refresh):
-    # ... (Code hàm này giữ nguyên) ...
+    """Xóa bảng lương đã chọn."""
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn bản ghi cần xóa!")
         return
+
     maluong = sel[0] 
+
     safe_delete(
         table_name="BangLuong",
         key_column="MaLuong",
@@ -219,8 +232,7 @@ def delete_salary(tree, refresh):
         item_label="bảng lương"
     )
 
-# SỬA 3: CẬP NHẬT HÀM `export_salary`
-def export_salary(parent_window): # Chấp nhận 'parent_window'
+def export_salary(parent_window):
     """Xuất bảng lương ra Excel (dùng helper và filedialog)"""
     query = """
         SELECT BL.MaLuong, NV.MaNV, NV.HoTen, BL.Thang, BL.Nam, 
@@ -232,7 +244,6 @@ def export_salary(parent_window): # Chấp nhận 'parent_window'
     headers = ["Mã Lương", "Mã NV", "Họ Tên", "Tháng", "Năm", "Tổng Giờ", "Lương (VNĐ)", "Trạng Thái"]
     
     try:
-        # SỬA 4: Truyền 'parent_window' vào helper
         export_to_excel_from_query(
             parent_window, 
             db.cursor, 
@@ -240,6 +251,5 @@ def export_salary(parent_window): # Chấp nhận 'parent_window'
             headers, 
             title="Bảng Lương"
         )
-        # (Không cần messagebox ở đây nữa vì helper đã tự hiển thị)
     except Exception as e:
         messagebox.showerror("Lỗi xuất file", f"Không thể xuất file Excel:\n{e}", parent=parent_window)

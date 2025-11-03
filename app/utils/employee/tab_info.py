@@ -14,16 +14,12 @@ from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
 from app.theme import setup_styles
 
-# SỬA 1: Thay đổi tham số hàm (không còn root, username, role)
 def build_tab(parent, on_back_callback=None):
-    """Tab 1 - Thông tin nhân viên (Đã refactor cho GĐ 2)"""
+    """Tab 1 - Xây dựng giao diện Thông tin nhân viên."""
     setup_styles()
     parent.configure(bg="#f5e6ca")
     
-    # (Xóa center_window)
-
-    # ===== THANH CHỨC NĂNG =====
-    # (Sắp xếp lại layout cho nhất quán)
+    # --- Thanh chức năng ---
     top_frame = tk.Frame(parent, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10)
 
@@ -45,9 +41,7 @@ def build_tab(parent, on_back_callback=None):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-
-    # ====== BẢNG HIỂN THỊ ======
-    # (SỬA 4: Đặt TreeView vào 1 Frame riêng để pack)
+    # --- Bảng hiển thị (Treeview) ---
     tree_frame = tk.Frame(parent, bg="#f5e6ca")
     tree_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
     
@@ -62,13 +56,13 @@ def build_tab(parent, on_back_callback=None):
     for col in columns:
         tree.heading(col, text=headers_vn[col])
         tree.column(col, anchor="center", width=120)
-    tree.pack(fill="both", expand=True) # Đặt tree vào tree_frame
+    tree.pack(fill="both", expand=True) 
 
-    # ====== HÀM TẢI DỮ LIỆU (Đã chuẩn hóa) ======
     def load_data(tree_widget, status_var, keyword=None):
+        """Tải và hiển thị dữ liệu nhân viên."""
         status_var.set("Đang tải dữ liệu...")
         tree_widget.update_idletasks()
-        query = "SELECT * FROM NhanVien" # Lấy * để đảm bảo mọi cột đều có
+        query = "SELECT * FROM NhanVien"
         params = ()
         if keyword:
             kw = f"%{keyword.strip()}%"
@@ -98,7 +92,7 @@ def build_tab(parent, on_back_callback=None):
             status_var.set("Lỗi tải!")
             messagebox.showerror("Lỗi", f"Không thể tải hoặc hiển thị dữ liệu: {e}")
 
-    # ====== NÚT CHỨC NĂNG (trong btn_frame) ======
+    # --- Nút chức năng ---
     def refresh_data():
         load_data(tree, status_label_var, search_var.get().strip())
 
@@ -111,15 +105,14 @@ def build_tab(parent, on_back_callback=None):
     ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
                command=lambda: delete_employee(tree, refresh_data)).pack(side="left", padx=5)
     
-    # SỬA 2: Sửa nút "Quay lại"
     if on_back_callback:
         ttk.Button(btn_frame, text="⬅ Quay lại Dashboard", style="Close.TButton",
                    command=on_back_callback).pack(side="left", padx=5)
 
-    # ====== GẮN SỰ KIỆN ======
+    # --- Gán sự kiện ---
     def on_search_change(event=None):
         refresh_data()
-    entry_search.bind("<KeyRelease>", on_search_change) # SỬA 3: Đổi trace thành bind
+    entry_search.bind("<KeyRelease>", on_search_change) 
 
     def on_double_click(event):
         sel = tree.selection()
@@ -127,16 +120,15 @@ def build_tab(parent, on_back_callback=None):
             edit_employee(tree, refresh_data)
     tree.bind("<Double-1>", on_double_click)
 
-    # Tải dữ liệu lần đầu
     refresh_data()
 
 
 # =============================================================
-# CÁC HÀM CRUD (Giữ nguyên logic, không thay đổi)
-# (Đã được chuẩn hóa từ trước)
+# CÁC HÀM CRUD (POP-UP)
 # =============================================================
 def add_employee(refresh):
-    win, form = create_form_window("➕ Thêm nhân viên mới", "430x480") # Sửa size
+    """Mở cửa sổ pop-up để thêm nhân viên mới."""
+    win, form = create_form_window("➕ Thêm nhân viên mới", "430x480") 
     entries = {}
     labels = ["Mã NV", "Họ tên", "Giới tính", "Ngày sinh", "Chức vụ", "Lương cơ bản", "Trạng thái"]
     positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
@@ -168,7 +160,6 @@ def add_employee(refresh):
             
     form.grid_columnconfigure(1, weight=1)
     
-    # Sửa tên nút cho nhất quán
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: submit()).pack(ipadx=10, ipady=5)
@@ -202,6 +193,7 @@ def add_employee(refresh):
             messagebox.showerror("Lỗi", f"Không thể thêm nhân viên: {e}", parent=win)
 
 def edit_employee(tree, refresh):
+    """Mở cửa sổ pop-up để sửa thông tin nhân viên."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần sửa!"); return
@@ -209,7 +201,7 @@ def edit_employee(tree, refresh):
     win, form = create_form_window(f"✏️ Sửa nhân viên {manv}", "430x480")
     
     labels = ["Họ tên", "Giới tính", "Ngày sinh", "Chức vụ", "Lương cơ bản", "Trạng thái"]
-    entries = {}; positions = ["Quản lý", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
+    entries = {}; positions = ["Quản lý", "Admin", "Thu ngân", "Phục vụ", "Pha chế", "Tạp vụ", "Bảo vệ"]
     statuses = ["Đang làm", "Tạm nghỉ", "Đào tạo", "Đã nghỉ"]
     
     item_values = tree.item(manv)["values"]
@@ -231,7 +223,7 @@ def edit_employee(tree, refresh):
             cb.grid(row=i, column=1, padx=8, pady=6, sticky="ew"); entries[text] = cb
         elif text == "Ngày sinh":
             cal = DateEntry(form, date_pattern="yyyy-mm-dd", font=("Arial", 11), background="#3e2723", foreground="white", borderwidth=2)
-            if current_val: cal.set_date(current_val) # Chỉ set nếu ngày hợp lệ
+            if current_val: cal.set_date(current_val)
             cal.grid(row=i, column=1, padx=8, pady=6, sticky="ew"); entries[text] = cal
         elif text == "Trạng thái":
             cb = ttk.Combobox(form, values=statuses, state="readonly", font=("Arial", 11))
@@ -248,17 +240,14 @@ def edit_employee(tree, refresh):
             
     form.grid_columnconfigure(1, weight=1)
     
-    # Sửa tên nút cho nhất quán
     btn_frame = tk.Frame(win, bg="#f8f9fa")
     btn_frame.pack(pady=10)
     ttk.Button(btn_frame, text="💾 Lưu thay đổi", command=lambda: save()).pack(ipadx=10, ipady=5)
-
 
     def save():
         try:
             hoten = entries["Họ tên"].get().strip()
             gt = entries["Giới tính"].get().strip()
-            # Lấy ngày, chấp nhận None
             ngs_date = entries["Ngày sinh"].get_date()
             ngs = normalize_date_input(ngs_date) if ngs_date else None
             
@@ -276,6 +265,7 @@ def edit_employee(tree, refresh):
             messagebox.showerror("Lỗi", f"Không thể cập nhật nhân viên: {e}", parent=win)
 
 def delete_employee(tree, refresh):
+    """Xóa nhân viên đã chọn."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nhân viên cần xóa!"); return

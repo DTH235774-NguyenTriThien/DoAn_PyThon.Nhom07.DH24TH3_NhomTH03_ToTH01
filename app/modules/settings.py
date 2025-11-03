@@ -15,7 +15,6 @@ from app.utils.treeview_helpers import fill_treeview_chunked
 
 CONFIG_FILE = 'config.ini'
 
-# --- HÀM CHÍNH HIỂN THỊ MODULE ---
 def create_settings_module(parent_frame, on_back_callback):
     """Giao diện chính cho Module Cấu hình & Quản lý Tài khoản"""
     
@@ -36,17 +35,15 @@ def create_settings_module(parent_frame, on_back_callback):
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
              command=on_back_callback).pack(side="right", padx=5)
     
-    # SỬA 1: Khởi tạo status_label_var ở cấp cao nhất
+    # Biến StringVar cho nhãn trạng thái (dùng chung cho cả 2 tab)
     status_label_var = tk.StringVar(value="")
     
-    # Nhãn trạng thái (sẽ được Tab 1 sử dụng)
     status_label = ttk.Label(top_frame, textvariable=status_label_var, 
                              font=("Arial", 10, "italic"), background="#f9fafb", 
                              foreground="blue")
     status_label.pack(side="left", padx=10)
 
-
-    # --- TẠO NOTEBOOK (Tabs) ---
+    # --- Notebook (Tabs) ---
     notebook = ttk.Notebook(module_frame)
     notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
@@ -55,30 +52,19 @@ def create_settings_module(parent_frame, on_back_callback):
     
     notebook.add(tab1_accounts, text="  Quản lý Tài khoản  ")
     notebook.add(tab2_config, text="  Cấu hình Nghiệp vụ  ")
-
-    # SỬA 2: Truyền status_label_var vào cả hai hàm build tab
     
-    # =========================================================
-    # TAB 1: QUẢN LÝ TÀI KHOẢN
-    # =========================================================
+    # Xây dựng nội dung cho từng tab
     build_account_tab(tab1_accounts, status_label_var)
+    build_config_tab(tab2_config, status_label_var) 
 
-    # =========================================================
-    # TAB 2: CẤU HÌNH NGHIỆP VỤ
-    # =========================================================
-    build_config_tab(tab2_config, status_label_var) # Truyền vào đây
-
-    # Trả về frame chính
     return module_frame
 
 # ==============================================================
 #  BUILD TAB 1: QUẢN LÝ TÀI KHOẢN
 # ==============================================================
-# SỬA 3: Chấp nhận status_label_var
 def build_account_tab(parent, status_label_var):
     """Xây dựng giao diện cho tab Quản lý Tài khoản"""
     
-    # --- Thanh điều khiển (Control Frame) ---
     top_frame = tk.Frame(parent, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10) 
 
@@ -104,13 +90,6 @@ def build_account_tab(parent, status_label_var):
     search_var = tk.StringVar()
     entry_search = ttk.Entry(filter_frame, textvariable=search_var, width=30) 
     entry_search.pack(side="left", padx=5, fill="x", expand=True) 
-    
-    # SỬA 4: Xóa dòng khởi tạo status_label_var (vì nó đã được truyền vào)
-    # status_label_var = tk.StringVar(value="")
-    
-    # (Nhãn status_label đã được chuyển lên hàm create_settings_module)
-    # status_label = ttk.Label(filter_frame, ...)
-    # status_label.pack(side="left", padx=10)
 
     # ===== TREEVIEW (Danh sách tài khoản) =====
     tree_frame = tk.Frame(parent) 
@@ -124,7 +103,7 @@ def build_account_tab(parent, status_label_var):
     tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
     for col, text in headers.items():
         tree.heading(col, text=text)
-        tree.column(col, anchor="center", width=150)
+        tree.column(col, anchor="w", width=150) # Đổi sang căn trái
     tree.column("MaNV", anchor="center", width=100) 
     tree.column("Role", anchor="center", width=120) 
     tree.pack(fill="both", expand=True)
@@ -177,7 +156,6 @@ def build_account_tab(parent, status_label_var):
 # ==============================================================
 #  BUILD TAB 2: CẤU HÌNH NGHIỆP VỤ
 # ==============================================================
-# SỬA 5: Chấp nhận status_label_var
 def build_config_tab(parent, status_label_var):
     """Xây dựng giao diện cho tab Cấu hình Nghiệp vụ"""
     
@@ -212,7 +190,6 @@ def build_config_tab(parent, status_label_var):
         vnd_value = config.get('BusinessLogic', 'VND_PER_POINT', fallback='10000')
         vnd_per_point_var.set(vnd_value)
         
-        # SỬA 6: Hàm này giờ đã có thể truy cập status_label_var
         status_label_var.set("Đã tải cấu hình.") 
 
     def save_config():
@@ -239,7 +216,6 @@ def build_config_tab(parent, status_label_var):
             with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
                 config.write(configfile)
             messagebox.showinfo("Thành công", "Đã lưu cấu hình thành công.", parent=parent)
-            # SỬA 6: Hàm này giờ đã có thể truy cập status_label_var
             status_label_var.set("Đã lưu cấu hình.")
         except Exception as e:
             messagebox.showerror("Lỗi Lưu file", f"Không thể ghi file config.ini:\n{e}", parent=parent)
@@ -248,7 +224,7 @@ def build_config_tab(parent, status_label_var):
 
 
 # ==============================================================
-#  HÀM CRUD TÀI KHOẢN (Giữ nguyên)
+#  HÀM CRUD TÀI KHOẢN
 # ==============================================================
 
 def add_account(refresh_func):
@@ -263,7 +239,7 @@ def add_account(refresh_func):
             AND TrangThai = N'Đang làm'
         """)
         nv_map = {f"{r['MaNV'].strip()} - {r['HoTen']}": r['MaNV'].strip() for r in nv_rows}
-        nv_list = [""] 
+        nv_list = [""] # Cho phép không liên kết
         nv_list.extend(list(nv_map.keys()))
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể tải danh sách nhân viên: {e}", parent=win)
@@ -283,7 +259,7 @@ def add_account(refresh_func):
             ent = ttk.Combobox(form, values=nv_list, state="readonly", font=("Arial", 11))
         elif text == "Vai trò (Role)":
             ent = ttk.Combobox(form, values=role_list, state="readonly", font=("Arial", 11))
-            ent.set(role_list[1]) 
+            ent.set(role_list[1]) # Mặc định là 'Nhân viên'
         else:
             ent = ttk.Entry(form, font=("Arial", 11))
         
@@ -335,6 +311,7 @@ def add_account(refresh_func):
 
 
 def reset_password(tree, refresh_func):
+    """Đặt lại mật khẩu cho tài khoản đã chọn"""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn một tài khoản để reset mật khẩu!")
@@ -369,6 +346,7 @@ def reset_password(tree, refresh_func):
 
 
 def delete_account(tree, refresh_func):
+    """Xóa tài khoản đã chọn"""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn tài khoản cần xóa!")

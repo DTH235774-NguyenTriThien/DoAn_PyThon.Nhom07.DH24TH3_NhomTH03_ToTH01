@@ -9,8 +9,6 @@ from datetime import datetime
 from app.utils.report_helpers import print_pos_receipt
 import configparser
 import os 
-
-# SỬA 1: Import hàm căn giữa (từ bước trước)
 from app.utils.utils import center_window_relative
 
 try:
@@ -24,6 +22,7 @@ from app.utils.business_helpers import recalc_invoice_total, deduct_inventory_fr
 from app.modules.invoices import update_customer_points 
 
 def create_pos_module(parent_frame, employee_id, on_back_callback):
+    """Giao diện chính cho Module Bán hàng (POS) - Bố cục 2 cột"""
     
     setup_styles()
     
@@ -58,7 +57,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     main_content_frame.grid_columnconfigure(1, weight=2) # Cột 2: Giỏ hàng/Thanh toán
 
     # =========================================================
-    # CỘT 2: GIỎ HÀNG & ĐIỀU KHIỂN (Xếp chồng)
+    # CỘT 2: GIỎ HÀNG & ĐIỀU KHIỂN
     # =========================================================
     
     controls_frame = tk.Frame(main_content_frame, bg="#f5e6ca")
@@ -69,7 +68,8 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     controls_frame.grid_rowconfigure(2, weight=0) # Hàng 2: Hành động
 
     # --- Khung Giỏ hàng (Cột 2, Hàng 0) ---
-    cart_frame = ttk.LabelFrame(controls_frame, text=" 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) ")
+    cart_frame_label = " 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) "
+    cart_frame = ttk.LabelFrame(controls_frame, text=cart_frame_label)
     cart_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
     cart_frame.grid_rowconfigure(0, weight=1) 
     cart_frame.grid_rowconfigure(1, weight=0) 
@@ -85,7 +85,8 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     cart_scroll = ttk.Scrollbar(cart_frame, orient="vertical", command=tree_cart.yview)
     cart_scroll.grid(row=0, column=1, sticky="ns")
     tree_cart.configure(yscrollcommand=cart_scroll.set)
-    tree_cart.counter = 0
+    
+    tree_cart.counter = 0 # Gán biến đếm (counter) vào tree_cart
 
     # --- Khung Tổng tiền ---
     total_frame = tk.Frame(cart_frame, bg="#f5e6ca")
@@ -130,11 +131,11 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     btn_recalc.grid(row=1, column=2, sticky="ew", padx=5, pady=5, ipady=8) 
 
 
-    # (Toàn bộ các hàm logic bên dưới không thay đổi)
     # =========================================================
-    # HÀM CẬP NHẬT TỔNG TIỀN (Giữ nguyên)
+    # HÀM CẬP NHẬT TỔNG TIỀN
     # =========================================================
     def update_totals():
+        """Tính toán và cập nhật 3 nhãn tổng tiền (bao gồm cả giảm giá)."""
         nonlocal current_customer_info, vnd_per_point_ratio
         total = Decimal(0.0)
         for item_id in tree_cart.get_children():
@@ -157,14 +158,14 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         final_total_var.set(f"{int(final_total):,} đ")
 
     # =========================================================
-    # CÁC HÀM XỬ LÝ GIỎ HÀNG (Giữ nguyên)
+    # CÁC HÀM XỬ LÝ GIỎ HÀNG
     # =========================================================
     def add_item_to_cart(product_info, notes):
-        tree_cart.counter += 1
-        new_iid = f"item_{tree_cart.counter}" 
+        """Thêm 1 sản phẩm vào giỏ hàng VỚI GHI CHÚ."""
         masp = product_info['MaSP']
         tensp = product_info['TenSP']
         dongia = Decimal(product_info['DonGia'])
+        
         item_to_increment = None
         if not notes: 
             for iid in tree_cart.get_children():
@@ -172,6 +173,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 if tags and tags[0] == masp and tags[1] == "":
                     item_to_increment = iid
                     break
+        
         if item_to_increment:
             tree_cart.selection_set(item_to_increment) 
             tree_cart.focus(item_to_increment)         
@@ -182,11 +184,17 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             if notes:
                 tensp_display = f"{tensp} ({notes})" 
             values = (tensp_display, sl, f"{int(dongia):,}", notes)
+            
+            tree_cart.counter += 1
+            new_iid = f"item_{tree_cart.counter}" 
+            
             tags = (masp, notes)
             tree_cart.insert("", "end", iid=new_iid, values=values, tags=tags)
+        
         update_totals() 
 
     def increment_quantity():
+        """Tăng số lượng của món đang chọn (đang focus) lên 1."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -199,6 +207,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         update_totals()
 
     def decrement_quantity():
+        """Giảm số lượng của món đang chọn (đang focus) đi 1. Nếu về 0 thì xóa."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -214,6 +223,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     def remove_item_from_cart():
+        """Xóa món đang chọn (đang focus) khỏi giỏ hàng."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -221,6 +231,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         update_totals()
 
     def clear_cart():
+        """Xóa tất cả các món khỏi giỏ hàng và reset."""
         nonlocal current_customer_info
         if not tree_cart.get_children():
              return
@@ -234,14 +245,15 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     # =========================================================
-    # HÀM TÙY CHỌN (MODIFIERS) (SỬA: Đã căn giữa)
+    # HÀM TÙY CHỌN (MODIFIERS)
     # =========================================================
     def show_options_window(product_info):
+        """Mở cửa sổ Toplevel để nhập Ghi chú/Tùy chọn"""
         win = tk.Toplevel(module_frame)
         win.title(f"Tùy chọn cho: {product_info['TenSP']}")
         win.configure(bg="#f8f9fa")
         
-        # SỬA: Gọi hàm căn giữa
+        # Tự động căn giữa
         center_window_relative(win, module_frame, 350, 200)
         
         form = tk.Frame(win, bg="#f8f9fa", padx=15, pady=10)
@@ -290,20 +302,29 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
 
 
     # =========================================================
-    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS) (Giữ nguyên)
+    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS)
     # =========================================================
     def on_cart_double_click(event):
+        """Sửa số lượng khi double-click vào giỏ hàng"""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
+        
         values = tree_cart.item(selected_iid, "values")
         tensp_display, sl_hien_tai, dongia_str, notes = values
         sl_hien_tai = int(sl_hien_tai)
+
         new_qty = simpledialog.askinteger(
-            "Sửa Số Lượng", f"Nhập số lượng mới cho:\n{tensp_display}",
-            parent=module_frame, initialvalue=sl_hien_tai, minvalue=0 
+            "Sửa Số Lượng",
+            f"Nhập số lượng mới cho:\n{tensp_display}",
+            parent=module_frame,
+            initialvalue=sl_hien_tai,
+            minvalue=0 
         )
-        if new_qty is None: return
+
+        if new_qty is None: 
+            return
+
         if new_qty == 0:
             remove_item_from_cart()
         elif new_qty > 0:
@@ -312,6 +333,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     def on_cart_keypress(event):
+        """Xử lý phím tắt +, -, Delete trên giỏ hàng"""
         if event.keysym == 'plus' or event.keysym == 'equal':
             increment_quantity()
         elif event.keysym == 'minus':
@@ -323,19 +345,24 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     tree_cart.bind("<KeyRelease>", on_cart_keypress)
 
     def on_f9_press(event):
+        """Hàm xử lý khi nhấn F9 (Thanh toán)"""
         process_payment()
     def on_f12_press(event):
+        """Hàm xử lý khi nhấn F12 (Hủy bỏ)"""
         clear_cart()
 
     module_frame.bind_all("<F9>", on_f9_press)
     module_frame.bind_all("<F12>", on_f12_press)
     
     def _cleanup_hotkeys(event=None):
+        """Hàm này được gọi khi frame bị hủy"""
         module_frame.unbind_all("<F9>")
         module_frame.unbind_all("<F12>")
+        module_frame.unbind_all("<MouseWheel>") # Dọn dẹp cả lăn chuột
         module_frame.unbind("<Destroy>")
         
     def _on_back_pressed_wrapper():
+        """Hàm này chạy khi NHẤN NÚT QUAY LẠI"""
         _cleanup_hotkeys()
         on_back_callback()
         
@@ -368,14 +395,10 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         canvas.configure(scrollregion=canvas.bbox("all"))
     scrollable_frame.bind("<Configure>", configure_scrollregion)
 
-
-    # SỬA 3: THÊM CÁC HÀM HỖ TRỢ LĂN CHUỘT (MOUSEWHEEL)
     def _on_mousewheel(event):
         """Hàm xử lý sự kiện lăn chuột, cuộn canvas."""
-        # Logic cho Windows/macOS (dùng event.delta)
         if event.delta:
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        # Logic cho Linux (dùng event.num)
         else:
             if event.num == 5:
                 canvas.yview_scroll(1, "units")
@@ -383,21 +406,19 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 canvas.yview_scroll(-1, "units")
 
     def _bind_mousewheel_all(event):
-        """Gán sự kiện lăn chuột cho toàn bộ cửa sổ khi chuột đi vào menu"""
-        # (Dùng bind_all để bắt sự kiện ngay cả khi trỏ chuột lên nút bấm)
+        """Gán sự kiện lăn chuột khi chuột đi vào menu"""
         module_frame.bind_all("<MouseWheel>", _on_mousewheel)
 
     def _unbind_mousewheel_all(event):
         """Hủy gán sự kiện lăn chuột khi chuột rời khỏi menu"""
         module_frame.unbind_all("<MouseWheel>")
     
-    # Gán sự kiện <Enter> (vào) và <Leave> (ra) cho toàn bộ Cột 1
-    # (bao gồm cả Canvas, Scrollbar, và Frame)
     product_frame.bind("<Enter>", _bind_mousewheel_all)
     product_frame.bind("<Leave>", _unbind_mousewheel_all)
 
 
     def load_product_buttons(parent):
+        """Tải các nút sản phẩm có ảnh"""
         parent.image_references.clear()
         for widget in parent.winfo_children():
             widget.destroy()
@@ -429,7 +450,8 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
                 except Exception as e:
-                    print(f"Lỗi xử lý ảnh {img_path}: {e}")
+                    # Ghi lỗi vào terminal nhưng không làm crash app
+                    print(f"Lỗi xử lý ảnh {img_path}: {e}") 
                     img = Image.open(placeholder_path) 
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)
                     photo = ImageTk.PhotoImage(img_resized)
@@ -463,12 +485,14 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     _search_after_id = None
     
     def find_customer_realtime(*args):
+        """Hàm debounce cho tìm kiếm khách hàng"""
         nonlocal current_customer_info, _search_after_id
         if _search_after_id:
             module_frame.after_cancel(_search_after_id)
         _search_after_id = module_frame.after(300, perform_customer_search)
 
     def perform_customer_search():
+        """Hàm thực thi logic tìm kiếm CSDL"""
         nonlocal current_customer_info
         keyword = cust_search_var.get().strip()
         if not keyword:
@@ -505,6 +529,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     cust_search_var.trace_add("write", find_customer_realtime)
     
     def process_payment():
+        """Hàm xử lý thanh toán cuối cùng"""
         nonlocal current_customer_info
         if not tree_cart.get_children():
             messagebox.showwarning("Giỏ hàng trống", "Vui lòng thêm sản phẩm vào hóa đơn.", parent=module_frame)

@@ -7,7 +7,6 @@ from app.theme import setup_styles
 
 # Import các helper chuẩn của dự án
 from app.db import fetch_query, execute_query, execute_scalar
-# SỬA 1: Xóa go_back, clear_window, center_window
 from app.utils.utils import create_form_window
 from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
@@ -31,23 +30,13 @@ UNITS_LIST = sorted(list(set(INGREDIENT_MAP.values())))
 
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-# SỬA 2: Đổi tên hàm và chữ ký hàm (bỏ username, role)
 def create_ingredients_module(parent_frame, on_back_callback):
     """Giao diện chính cho Module Quản lý Nguyên Liệu (Kho)"""
     
-    # SỬA 3: Xóa các lệnh điều khiển cửa sổ (root)
-    # clear_window(root)
     setup_styles()
-    # root.title("📦 Quản lý Kho (Nguyên Liệu)")
-    # root.configure(bg="#f5e6ca")
-    # center_window(root, 1300, 600, offset_y=-60)
-    # root.minsize(1200, 600)
 
-    # SỬA 4: Tạo frame chính bên trong parent_frame
+    # --- Frame chính của module ---
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
-    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
-
-    # SỬA 5: Gắn các widget con vào 'module_frame'
     
     # --- Header ---
     header = tk.Frame(module_frame, bg="#4b2e05", height=70)
@@ -59,7 +48,7 @@ def create_ingredients_module(parent_frame, on_back_callback):
     top_frame = tk.Frame(module_frame, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10) 
 
-    # --- Frame Nút (Bên phải) - Đồng bộ layout ---
+    # --- Frame Nút (Bên phải) ---
     btn_frame = tk.Frame(top_frame, bg="#f9fafb")
     btn_frame.pack(side="right", anchor="n", padx=(10, 0))
     
@@ -78,14 +67,13 @@ def create_ingredients_module(parent_frame, on_back_callback):
     ttk.Button(btn_frame, text="🗑 Xóa", style="Delete.TButton",
              command=lambda: delete_ingredient(tree, refresh_data)).pack(side="left", padx=5)
     
-    # SỬA 6: Cập nhật nút "Quay lại"
     ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
              command=on_back_callback).pack(side="left", padx=5)
 
     # --- Frame Lọc (Bên trái) ---
     filter_frame = tk.Frame(top_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
-    # (Code Frame Lọc giữ nguyên)
+    
     tk.Label(filter_frame, text="🔎 Tìm NL:", font=("Arial", 11),
            bg="#f9fafb").pack(side="left", padx=(5, 2))
     search_var = tk.StringVar()
@@ -95,7 +83,7 @@ def create_ingredients_module(parent_frame, on_back_callback):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.pack(side="left", padx=10)
 
-    # ===== TREEVIEW (Gắn vào module_frame) =====
+    # --- Treeview ---
     columns = ("MaNL", "TenNL", "DonVi", "SoLuongTon")
     headers = {
         "MaNL": "Mã NL", "TenNL": "Tên Nguyên Liệu",
@@ -105,10 +93,10 @@ def create_ingredients_module(parent_frame, on_back_callback):
     for col, text in headers.items():
         tree.heading(col, text=text)
         tree.column(col, anchor="center", width=150)
-    tree.column("TenNL", anchor="center", width=300) 
+    tree.column("TenNL", anchor="w", width=300) # Căn trái Tên NL
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    # ===== HÀM TẢI DỮ LIỆU (Giữ nguyên) =====
+    # --- Hàm Tải Dữ liệu ---
     def load_data(tree_widget, status_var, keyword=None):
         status_var.set("Đang tải dữ liệu...")
         tree_widget.update_idletasks() 
@@ -118,7 +106,7 @@ def create_ingredients_module(parent_frame, on_back_callback):
             kw = f"%{keyword.strip()}%"
             query += " WHERE MaNL LIKE ? OR TenNL LIKE ? OR DonVi LIKE ?"
             params = (kw, kw, kw)
-        query += " ORDER BY MaNL" # Sắp xếp theo MaNL
+        query += " ORDER BY MaNL"
         try:
             rows = db.fetch_query(query, params)
             tree_data = []
@@ -139,7 +127,7 @@ def create_ingredients_module(parent_frame, on_back_callback):
             status_var.set("Lỗi tải!")
             messagebox.showerror("Lỗi", f"Không thể tải dữ liệu nguyên liệu: {e}")
 
-    # ===== HÀM TIỆN ÍCH (Giữ nguyên) =====
+    # --- Hàm Tiện ích & Gán sự kiện ---
     def refresh_data():
         keyword = search_var.get().strip()
         load_data(tree, status_label_var, keyword)
@@ -147,19 +135,17 @@ def create_ingredients_module(parent_frame, on_back_callback):
     def on_search_change(*args):
         refresh_data()
     search_var.trace_add("write", on_search_change)
+    
     refresh_data() # Tải lần đầu
 
-    # SỬA 7: Trả về frame chính
     return module_frame
 
 # ==============================================================
-#  HÀM CRUD VÀ NGHIỆP VỤ (KHÔNG CẦN THAY ĐỔI)
-#  (Các hàm này đều dùng Toplevel hoặc tree.master, 
-#  chúng độc lập với logic 'root' nên giữ nguyên)
+#  HÀM CRUD VÀ NGHIỆP VỤ (POP-UP)
 # ==============================================================
 
-# --- HÀM ADD_INGREDIENT (Giữ nguyên) ---
 def add_ingredient(refresh_func):
+    """Mở cửa sổ pop-up để thêm Nguyên liệu mới."""
     win, form = create_form_window("➕ Thêm Nguyên Liệu Mới", "400x250")
     
     ttk.Label(form, text="Mã NL:", background="#f8f9fa").grid(row=0, column=0, sticky="w", padx=5, pady=5)
@@ -178,6 +164,7 @@ def add_ingredient(refresh_func):
     form.grid_columnconfigure(1, weight=1)
 
     def on_name_change(event=None):
+        """Tự động gợi ý Đơn vị khi Tên được chọn."""
         ten = cb_tennl.get().strip()
         default_unit = None
         for key, unit in INGREDIENT_MAP.items():
@@ -211,8 +198,8 @@ def add_ingredient(refresh_func):
     ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
              command=lambda: submit()).pack(ipadx=10, ipady=6)
 
-# --- HÀM EDIT_INGREDIENT (Giữ nguyên) ---
 def edit_ingredient(tree, refresh_func):
+    """Mở cửa sổ pop-up để sửa Tên và Đơn vị Nguyên liệu."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nguyên liệu cần sửa!")
@@ -238,6 +225,7 @@ def edit_ingredient(tree, refresh_func):
     form.grid_columnconfigure(1, weight=1)
 
     def on_name_change(event=None):
+        """Tự động gợi ý Đơn vị khi Tên được chọn."""
         ten = cb_tennl.get().strip()
         default_unit = None
         for key, unit in INGREDIENT_MAP.items():
@@ -266,8 +254,8 @@ def edit_ingredient(tree, refresh_func):
     ttk.Button(btn_frame, text="💾 Lưu sản phẩm", style="Add.TButton",
              command=lambda: save()).pack(ipadx=10, ipady=6)
 
-# --- HÀM RESTOCK_INGREDIENT (Giữ nguyên) ---
 def restock_ingredient(tree, refresh_func):
+    """Mở pop-up để Nhập kho (Tăng số lượng tồn)."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nguyên liệu để nhập kho!")
@@ -299,9 +287,8 @@ def restock_ingredient(tree, refresh_func):
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể nhập kho: {e}")
 
-# --- HÀM ADJUST_INVENTORY (Giữ nguyên) ---
 def adjust_inventory(tree, refresh_func):
-    """Điều chỉnh tồn kho (Hủy, hỏng, kiểm kê sai)"""
+    """Điều chỉnh tồn kho (Hủy, hỏng, kiểm kê sai) về một con số tuyệt đối."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn nguyên liệu để điều chỉnh!")
@@ -313,7 +300,6 @@ def adjust_inventory(tree, refresh_func):
     donvi = values[2]
 
     try:
-        # 1. Lấy số lượng tồn kho CŨ (chính xác từ DB)
         current_qty_decimal = db.execute_scalar("SELECT SoLuongTon FROM NguyenLieu WHERE MaNL = ?", (manl,))
         if current_qty_decimal is None:
             messagebox.showerror("Lỗi", "Không tìm thấy nguyên liệu trong CSDL.")
@@ -321,7 +307,6 @@ def adjust_inventory(tree, refresh_func):
         
         current_qty = float(current_qty_decimal)
 
-        # 2. Hỏi số lượng MỚI
         new_qty = simpledialog.askfloat(
             "🔧 Điều chỉnh kho", 
             f"Nhập số lượng TỒN KHO THỰC TẾ cho:\n\n{tennl} (Hiện tại: {current_qty} {donvi})",
@@ -330,16 +315,14 @@ def adjust_inventory(tree, refresh_func):
         )
         
         if new_qty is None:
-            return # Người dùng hủy
+            return 
         
-        # 3. Tính toán chênh lệch
         change_qty = new_qty - current_qty # Sẽ là số âm nếu hủy kho
         
         if change_qty == 0:
             messagebox.showinfo("Thông báo", "Không có thay đổi.", parent=tree.master)
             return
 
-        # 4. Cập nhật CSDL
         query_update = "UPDATE NguyenLieu SET SoLuongTon = ? WHERE MaNL = ?"
         query_log = "INSERT INTO InventoryMovements (MaNL, ChangeQty, MovementType) VALUES (?, ?, 'adjust')"
         
@@ -357,7 +340,6 @@ def adjust_inventory(tree, refresh_func):
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể điều chỉnh kho: {e}")
 
-# --- HÀM DELETE_INGREDIENT (Giữ nguyên) ---
 def delete_ingredient(tree, refresh_func):
     """Xóa nguyên liệu (dùng safe_delete)"""
     selected = tree.selection()

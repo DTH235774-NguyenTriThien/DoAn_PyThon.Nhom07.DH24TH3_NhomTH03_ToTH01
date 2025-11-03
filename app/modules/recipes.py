@@ -7,38 +7,27 @@ from app.theme import setup_styles
 
 # Import các helper chuẩn của dự án
 from app.db import fetch_query, execute_query, execute_scalar
-# SỬA 1: Xóa các import không cần thiết (go_back, clear_window, v.v...)
-# from app.utils.utils import clear_window, create_form_window, go_back, center_window
 from app.utils.business_helpers import safe_delete
 from app.utils.treeview_helpers import fill_treeview_chunked
 
-# =========================================================
-# TỪ ĐIỂN VÀ CACHE NGUYÊN LIỆU (Giữ nguyên)
-# =========================================================
-
+# --- TỪ ĐIỂN NGUYÊN LIỆU (Giữ nguyên) ---
+# (Áp dụng bộ lọc logic nghiệp vụ cho công thức)
 RECIPE_FOOD_MAP = {
-    # Cà phê
     "Cà phê hạt": "g", "Cà phê bột": "g",
-    # Sữa
     "Sữa đặc": "ml", "Sữa tươi": "ml", "Kem béo (Rich)": "ml",
     "Kem (Whipping Cream)": "ml", "Sữa chua": "g",
-    # Đường / Siro
     "Đường cát": "g", "Đường nước": "ml", "Siro Caramel": "ml", "Siro Vani": "ml",
     "Siro Bạc hà": "ml", "Siro Dâu": "ml", "Mật ong": "ml", "Sốt Chocolate": "g",
-    # Trà
     "Trà đen": "g", "Trà lài": "g", "Trà ô long": "g",
     "Bột Matcha": "g", "Bột Cacao": "g", "Bột Frappe (Base)": "g",
-    # Trái cây (đã chuẩn hóa 'g')
     "Cam": "g", 
     "Chanh": "g", 
     "Dâu tây": "g", 
     "Dâu tây (tươi)": "g", 
     "Bơ": "g", 
     "Xoài": "g", 
-    # Trái cây (ngâm)
     "Đào (ngâm)": "hộp", 
     "Vải (ngâm)": "hộp",
-    # Khác
     "Trân châu": "g", 
     "Đá viên": "kg",
     "Muối": "g",
@@ -52,7 +41,7 @@ _master_ingredient_keys = []
 _ingredient_map = {} 
 
 def load_ingredient_cache():
-    """Tải và cache danh sách NGUYÊN LIỆU THỰC PHẨM (lọc bỏ Vật tư VÀ đơn vị cũ)"""
+    """Tải và cache danh sách NGUYÊN LIỆU THỰC PHẨM (lọc bỏ Vật tư)."""
     global _ingredient_map, _master_ingredient_keys
     if not _ingredient_map:
         try:
@@ -65,39 +54,27 @@ def load_ingredient_cache():
                 ten_nl = r['TenNL']
                 don_vi = r['DonVi']
                 
-                # 1. Kiểm tra xem Tên có trong MAP chuẩn không
                 if ten_nl in RECIPE_FOOD_MAP:
-                    # 2. Kiểm tra xem Đơn vị có khớp với MAP chuẩn không
                     if RECIPE_FOOD_MAP[ten_nl] == don_vi:
-                        # CHỈ KHI KHỚP CẢ 2, MỚI THÊM VÀO COMBOBOX
                         key = f"{r['MaNL'].strip()} - {ten_nl} ({don_vi})"
                         _ingredient_map[key] = r['MaNL'].strip()
             
             _master_ingredient_keys = sorted(_ingredient_map.keys())
             
         except Exception as e:
-            print(f"Lỗi tải cache nguyên liệu: {e}")
+            # Dùng print vì đây là lỗi lúc khởi động, không phải lỗi runtime
+            print(f"Lỗi tải cache nguyên liệu: {e}") 
             _ingredient_map = {}
             _master_ingredient_keys = []
 
 # --- HÀM CHÍNH HIỂN THỊ MODULE ---
-# SỬA 2: Đổi tên hàm
-# SỬA 3: Thay đổi chữ ký hàm (bỏ username, role, on_exit_callback)
 def create_recipes_module(parent_frame, on_back_callback):
+    """Tạo giao diện module Quản lý Công thức Sản phẩm."""
     
-    # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
-    # clear_window(root)
     setup_styles()
-    # root.title("📜 Quản lý Công thức Sản phẩm")
-    # root.configure(bg="#f5e6ca")
-    # center_window(root, 1200, 700, offset_y=-60)
-    # root.minsize(1000, 600)
 
-    # SỬA 5: Tạo frame chính bên trong parent_frame
+    # --- Frame chính của module ---
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
-    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
-
-    # SỬA 6: Gắn các widget con vào 'module_frame'
 
     # --- Header & Nút Quay lại ---
     header = tk.Frame(module_frame, bg="#4b2e05", height=70)
@@ -108,7 +85,6 @@ def create_recipes_module(parent_frame, on_back_callback):
     top_frame = tk.Frame(module_frame, bg="#f9fafb")
     top_frame.pack(fill="x", pady=10, padx=10)
     
-    # SỬA 7: Cập nhật nút "Quay lại"
     ttk.Button(top_frame, text="⬅ Quay lại", style="Close.TButton",
              command=on_back_callback).pack(side="right", padx=5)
 
@@ -126,7 +102,7 @@ def create_recipes_module(parent_frame, on_back_callback):
               background="#f9fafb", foreground="blue").pack(anchor="w", padx=10)
     tree_products = ttk.Treeview(left_panel, columns=("MaSP", "TenSP", "DonGia"), show="headings", height=20)
     tree_products.heading("MaSP", text="Mã SP"); tree_products.heading("TenSP", text="Tên Sản Phẩm"); tree_products.heading("DonGia", text="Đơn giá")
-    tree_products.column("MaSP", width=80, anchor="center"); tree_products.column("TenSP", width=250, anchor="center"); tree_products.column("DonGia", width=100, anchor="center")
+    tree_products.column("MaSP", width=80, anchor="center"); tree_products.column("TenSP", width=250, anchor="w"); tree_products.column("DonGia", width=100, anchor="e")
     tree_products.pack(fill="both", expand=True, padx=10, pady=10)
     
     # --- KHUNG BÊN PHẢI (CÔNG THỨC CHI TIẾT) ---
@@ -140,10 +116,10 @@ def create_recipes_module(parent_frame, on_back_callback):
               background="#f9fafb", foreground="blue").pack(anchor="w", padx=10)
     tree_recipe = ttk.Treeview(right_panel, columns=("MaNL", "TenNL", "SoLuong", "DonVi"), show="headings", height=15)
     tree_recipe.heading("MaNL", text="Mã NL"); tree_recipe.heading("TenNL", text="Tên Nguyên Liệu"); tree_recipe.heading("SoLuong", text="Số lượng"); tree_recipe.heading("DonVi", text="Đơn vị")
-    tree_recipe.column("MaNL", width=80, anchor="center"); tree_recipe.column("TenNL", width=200, anchor="center"); tree_recipe.column("SoLuong", width=80, anchor="center"); tree_recipe.column("DonVi", width=80, anchor="center")
+    tree_recipe.column("MaNL", width=80, anchor="center"); tree_recipe.column("TenNL", width=200, anchor="w"); tree_recipe.column("SoLuong", width=80, anchor="e"); tree_recipe.column("DonVi", width=80, anchor="center")
     tree_recipe.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
-    # --- Khung Thêm/Xóa Nguyên liệu (Cải tiến 2) ---
+    # --- Khung Thêm/Xóa Nguyên liệu ---
     controls_frame = tk.Frame(right_panel, bg="#f9fafb")
     controls_frame.pack(fill="x", padx=10, pady=5)
     
@@ -175,6 +151,7 @@ def create_recipes_module(parent_frame, on_back_callback):
     controls_frame.grid_columnconfigure(0, weight=1)
 
     def _filter_ingredient_combobox(*args):
+        """Lọc combobox nguyên liệu dựa trên ô tìm kiếm."""
         keyword = entry_search_nl_var.get().lower()
         if not keyword:
             cb_ingredients['values'] = _master_ingredient_keys
@@ -188,7 +165,7 @@ def create_recipes_module(parent_frame, on_back_callback):
                 
     entry_search_nl_var.trace_add("write", _filter_ingredient_combobox)
 
-    # --- LOGIC & HÀM XỬ LÝ (Giữ nguyên) ---
+    # --- LOGIC & HÀM XỬ LÝ ---
     def load_all_products():
         status_label_products.set("Đang tải sản phẩm...")
         tree_products.update_idletasks()
@@ -247,7 +224,6 @@ def create_recipes_module(parent_frame, on_back_callback):
     def add_ingredient_to_recipe():
         selected_product = tree_products.selection()
         if not selected_product:
-            # SỬA 8: Thay parent=root thành parent=parent_frame
             messagebox.showwarning("Chưa chọn", "Vui lòng chọn một SẢN PHẨM ở cây bên trái trước.", parent=parent_frame)
             return
         masp = selected_product[0]
@@ -295,7 +271,6 @@ def create_recipes_module(parent_frame, on_back_callback):
         manl = selected_ingredient[0]
         tennl = tree_recipe.item(manl, "values")[1]
         
-        # SỬA 8: Thêm parent=parent_frame
         if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa '{tennl}' khỏi công thức này?", parent=parent_frame):
             query = "DELETE FROM CongThuc WHERE MaSP = ? AND MaNL = ?"
             if db.execute_query(query, (masp, manl)):
@@ -306,5 +281,4 @@ def create_recipes_module(parent_frame, on_back_callback):
     # Tải danh sách sản phẩm (cây bên trái) khi mở
     load_all_products()
     
-    # SỬA 9: Trả về frame chính
     return module_frame

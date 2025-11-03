@@ -7,16 +7,15 @@ from datetime import datetime, timedelta
 # Import các helper chuẩn của dự án
 from app import db
 from app.theme import setup_styles
-# SỬA 1: Xóa go_back, center_window. Giữ clear_window.
 from app.utils.utils import clear_window
 from app.utils.treeview_helpers import fill_treeview_chunked
 
-# Import helper báo cáo MỚI
+# Import helper báo cáo
 from app.utils.report_helpers import (
     get_kpi_data, get_top_products_data, 
     get_daily_revenue_data,
-    get_salary_kpi_data, # <-- HÀM MỚI
-    get_salary_pie_chart_data # <-- HÀM MỚI
+    get_salary_kpi_data, 
+    get_salary_pie_chart_data 
 )
 
 # Import Matplotlib
@@ -31,25 +30,13 @@ except ImportError:
     print("Vui lòng chạy: pip install matplotlib")
 
 
-# --- HÀM CHÍNH HIỂN THỊ MODULE ---
-# SỬA 2: Đổi tên hàm
-# SỬA 3: Thay đổi chữ ký hàm (bỏ username, role, on_exit_callback)
 def create_reports_module(parent_frame, on_back_callback):
     """Giao diện chính cho Module Báo cáo & Thống kê"""
     
-    # SỬA 4: Xóa các lệnh điều khiển cửa sổ (root)
-    # clear_window(root)
     setup_styles()
-    # root.title("📊 BÁO CÁO & THỐNG KÊ")
-    # root.configure(bg="#f5e6ca")
-    # center_window(root, 1200, 700, offset_y=-60)
-    # root.minsize(1000, 600)
 
-    # SỬA 5: Tạo frame chính bên trong parent_frame
+    # --- Frame chính của module ---
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
-    # KHÔNG PACK() ở đây, để mainmenu kiểm soát
-
-    # SỬA 6: Gắn các widget con vào 'module_frame'
     
     # --- Header ---
     header = tk.Frame(module_frame, bg="#4b2e05", height=70)
@@ -69,16 +56,15 @@ def create_reports_module(parent_frame, on_back_callback):
                                 command=lambda: generate_report())
     btn_generate.pack(side="left", padx=5)
     
-    # SỬA 7: Cập nhật nút "Quay lại"
     btn_back = ttk.Button(btn_frame, text="⬅ Quay lại", style="Close.TButton",
                           command=on_back_callback)
     btn_back.pack(side="left", padx=5)
 
-    # (Code bộ lọc giữ nguyên, vì nó đã pack vào 'control_frame')
+    # --- Frame Lọc (Bên trái) ---
     filter_frame = tk.Frame(control_frame, bg="#f9fafb")
     filter_frame.pack(side="left", fill="x", expand=True)
 
-    # --- Hàng 0: Chọn loại báo cáo (Luôn hiển thị) ---
+    # --- Hàng 0: Chọn loại báo cáo ---
     ttk.Label(filter_frame, text="Loại Báo cáo:", background="#f9fafb",
               font=("Segoe UI", 11)).grid(row=0, column=0, padx=(5, 5), pady=5, sticky="e")
     
@@ -92,8 +78,8 @@ def create_reports_module(parent_frame, on_back_callback):
     ]
     report_cb.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
-    # --- Hàng 1, Cột 0-3: Bộ lọc NGÀY (Ẩn/Hiện) ---
-    today = datetime(2025, 10, 30) # Dùng data mẫu
+    # --- Hàng 1: Bộ lọc NGÀY ---
+    today = datetime.now() # Dùng ngày hiện tại
     start_of_month = today.replace(day=1)
 
     lbl_date_start = ttk.Label(filter_frame, text="Từ ngày:", background="#f9fafb",
@@ -114,7 +100,7 @@ def create_reports_module(parent_frame, on_back_callback):
     date_end_entry.set_date(today)
     date_end_entry.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
-    # --- Hàng 1, Cột 0-3: Bộ lọc THÁNG/NĂM (Ẩn/Hiện) ---
+    # --- Hàng 1: Bộ lọc THÁNG/NĂM ---
     lbl_month = ttk.Label(filter_frame, text="Tháng:", background="#f9fafb",
               font=("Segoe UI", 11))
     
@@ -133,48 +119,37 @@ def create_reports_module(parent_frame, on_back_callback):
     status_label = ttk.Label(filter_frame, textvariable=status_label_var, font=("Arial", 10, "italic"), background="#f9fafb", foreground="blue")
     status_label.grid(row=2, column=1, columnspan=3, padx=5, pady=5, sticky="w")
     
-    # --- HÀM ẨN/HIỆN BỘ LỌC ---
     def on_report_type_changed(event=None):
         """Ẩn/Hiện các bộ lọc dựa trên loại báo cáo"""
         report_type = report_type_var.get()
         
         if report_type == "Báo cáo Lương Nhân viên":
-            # ẨN bộ lọc Ngày
             lbl_date_start.grid_remove()
             date_start_entry.grid_remove()
             lbl_date_end.grid_remove()
             date_end_entry.grid_remove()
             
-            # HIỆN bộ lọc Tháng/Năm
             lbl_month.grid(row=1, column=0, padx=(10, 5), pady=5, sticky="e")
             cb_month.grid(row=1, column=1, padx=5, pady=5, sticky="w")
             lbl_year.grid(row=1, column=2, padx=(10, 5), pady=5, sticky="e")
             entry_year.grid(row=1, column=3, padx=5, pady=5, sticky="w")
         else:
-            # HIỆN bộ lọc Ngày
             lbl_date_start.grid(row=1, column=0, padx=(10, 5), pady=5, sticky="e")
             date_start_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
             lbl_date_end.grid(row=1, column=2, padx=(10, 5), pady=5, sticky="e")
             date_end_entry.grid(row=1, column=3, padx=5, pady=5, sticky="w")
 
-            # ẨN bộ lọc Tháng/Năm
             lbl_month.grid_remove()
             cb_month.grid_remove()
             lbl_year.grid_remove()
             entry_year.grid_remove()
             
-    # Gắn sự kiện và gọi lần đầu
     report_cb.bind("<<ComboboxSelected>>", on_report_type_changed)
-    on_report_type_changed() # Chạy lần đầu để setup đúng
+    on_report_type_changed() 
 
     # --- Khung kết quả (Result Frame) ---
     result_frame = tk.Frame(module_frame, bg="#f5e6ca")
     result_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-    # (Các hàm generate_report, _build_kpi_and_chart_report, 
-    #  _build_top_product_chart, _build_salary_dashboard 
-    #  đã được viết đúng, chúng sử dụng 'result_frame' làm 'parent' 
-    #  nên không cần sửa đổi gì bên trong chúng)
 
     def generate_report():
         """Hàm điều hướng, gọi báo cáo tương ứng"""
@@ -189,14 +164,12 @@ def create_reports_module(parent_frame, on_back_callback):
                 year = int(year_var.get())
                 if not (1 <= month <= 12 and year > 1900): raise ValueError
                 
-                # Gọi hàm Dashboard Lương MỚI
                 _build_salary_dashboard(result_frame, status_label_var, month, year)
                 
             except Exception as e:
                 messagebox.showerror("Lỗi đầu vào", f"Tháng hoặc Năm không hợp lệ: {e}")
                 return
         else:
-            # Báo cáo Doanh thu và Top Sản phẩm dùng chung bộ lọc Ngày
             try:
                 start_date = date_start_entry.get_date()
                 end_date = date_end_entry.get_date() + timedelta(days=1)
@@ -218,29 +191,35 @@ def create_reports_module(parent_frame, on_back_callback):
             ttk.Label(parent, text="Không có dữ liệu trong khoảng thời gian này.",
                       font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
             return
+            
         kpi_frame = tk.Frame(parent, bg="#f5e6ca")
         kpi_frame.pack(pady=10, fill="x", anchor="n")
         style = ttk.Style()
         style.configure("KPI.TFrame", background="#f9fafb", relief="solid", borderwidth=1)
         style.configure("KPI.Title.TLabel", background="#f9fafb", foreground="#4b2e05", font=("Segoe UI", 14, "bold"))
         style.configure("KPI.Value.TLabel", background="#f9fafb", foreground="#a47148", font=("Segoe UI", 28, "bold"))
+        
         card1 = ttk.Frame(kpi_frame, style="KPI.TFrame", padding=20)
         card1.pack(side="left", padx=10, fill="x", expand=True)
         ttk.Label(card1, text="TỔNG DOANH THU", style="KPI.Title.TLabel").pack()
         ttk.Label(card1, text=f"{int(kpi_data['TongDoanhThu']):,} đ", style="KPI.Value.TLabel").pack(pady=5)
+        
         card2 = ttk.Frame(kpi_frame, style="KPI.TFrame", padding=20)
         card2.pack(side="left", padx=10, fill="x", expand=True)
         ttk.Label(card2, text="TỔNG SỐ HÓA ĐƠN", style="KPI.Title.TLabel").pack()
         ttk.Label(card2, text=f"{kpi_data['TongSoHoaDon']}", style="KPI.Value.TLabel").pack(pady=5)
+        
         card3 = ttk.Frame(kpi_frame, style="KPI.TFrame", padding=20)
         card3.pack(side="left", padx=10, fill="x", expand=True)
         ttk.Label(card3, text="TRUNG BÌNH / HÓA ĐƠN", style="KPI.Title.TLabel").pack()
         ttk.Label(card3, text=f"{int(kpi_data['TrungBinhMoiHD']):,} đ", style="KPI.Value.TLabel").pack(pady=5)
+        
         if not MATPLOTLIB_AVAILABLE:
             ttk.Label(parent, text="Lỗi: Vui lòng cài đặt 'matplotlib' để xem biểu đồ.",
                       font=("Segoe UI", 12), background="#f5e6ca", foreground="red").pack(expand=True)
             return
         if not daily_data: return
+        
         chart_frame = tk.Frame(parent, bg="#f9fafb", relief="solid", borderwidth=1)
         chart_frame.pack(fill="both", expand=True, pady=(10, 0))
         fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
@@ -277,6 +256,7 @@ def create_reports_module(parent_frame, on_back_callback):
                 ttk.Label(parent, text="Không có dữ liệu sản phẩm trong khoảng thời gian này.",
                             font=("Segoe UI", 14), background="#f5e6ca").pack(expand=True)
                 return
+                
             products = [r["TenSP"] for r in reversed(rows)]
             quantities = [r["TongSoLuong"] for r in reversed(rows)]
             fig, ax = plt.subplots(figsize=(10, 6), dpi=100)
@@ -300,6 +280,7 @@ def create_reports_module(parent_frame, on_back_callback):
             canvas.draw()
             canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
             status_var.set(f"Đã tải {len(rows)} sản phẩm.")
+            
         except Exception as e:
             status_var.set("Lỗi!")
             messagebox.showerror("Lỗi SQL", f"Không thể lấy báo cáo sản phẩm: {e}")
@@ -315,7 +296,6 @@ def create_reports_module(parent_frame, on_back_callback):
             return
         
         try:
-            # 1. Lấy dữ liệu
             kpi_data = get_salary_kpi_data(month, year)
             pie_data = get_salary_pie_chart_data(month, year)
 
@@ -325,7 +305,6 @@ def create_reports_module(parent_frame, on_back_callback):
                 status_var.set("Không có dữ liệu.")
                 return
 
-            # 2. Vẽ Thẻ KPI (Giống báo cáo doanh thu)
             kpi_frame = tk.Frame(parent, bg="#f5e6ca")
             kpi_frame.pack(pady=10, fill="x", anchor="n")
             
@@ -349,43 +328,38 @@ def create_reports_module(parent_frame, on_back_callback):
             ttk.Label(card3, text="LƯƠNG TB / GIỜ", style="KPI.Title.TLabel").pack()
             ttk.Label(card3, text=f"{int(kpi_data['LuongTBGio']):,} đ", style="KPI.Value.TLabel").pack(pady=5)
             
-            # 3. Vẽ Biểu đồ tròn
             if not pie_data:
                 status_var.set("Đã tải KPI.")
-                return # Không có dữ liệu để vẽ biểu đồ
+                return 
 
             chart_frame = tk.Frame(parent, bg="#f9fafb", relief="solid", borderwidth=1)
             chart_frame.pack(fill="both", expand=True, pady=(10, 0))
 
-            # Chuẩn bị dữ liệu
             labels = [r['ChucVu'] for r in pie_data]
             sizes = [r['LuongTheoChucVu'] for r in pie_data]
             
             theme_colors = ['#a47148', '#c75c5c', '#8b5e34', '#f5e6ca', '#d7ccc8']
             
             fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
-            fig.set_facecolor('#f9fafb') # Nền ngoài
+            fig.set_facecolor('#f9fafb') 
 
             wedges, texts, autotexts = ax.pie(
                 sizes, 
-                autopct='%1.1f%%', # Hiển thị %
+                autopct='%1.1f%%', 
                 startangle=90,
                 colors=theme_colors,
-                pctdistance=0.85 # Đặt % vào trong
+                pctdistance=0.85 
             )
             
-            # Làm cho nó thành hình Donut (vành khuyên)
             centre_circle = plt.Circle((0,0), 0.70, fc='#f9fafb')
             fig.gca().add_artist(centre_circle)
             
-            # Định dạng chữ
             plt.setp(texts, color='#4b2e05', fontweight='bold')
             plt.setp(autotexts, color='white', fontweight='bold')
 
             ax.axis('equal')  
             ax.set_title(f"Phân bổ Quỹ lương (Tháng {month}/{year})", color="#4b2e05", fontdict={'fontsize': 16, 'fontweight': 'bold'})
             
-            # Thêm Chú thích (Legend)
             ax.legend(wedges, labels,
                       title="Chức vụ",
                       loc="center left",
@@ -411,5 +385,4 @@ def create_reports_module(parent_frame, on_back_callback):
     # --- Tải báo cáo mặc định khi mở ---
     generate_report()
     
-    # SỬA 9: Trả về frame chính
     return module_frame

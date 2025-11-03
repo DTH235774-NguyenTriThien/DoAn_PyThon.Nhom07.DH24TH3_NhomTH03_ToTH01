@@ -4,9 +4,8 @@ from tkinter import ttk, messagebox, simpledialog
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from app import db
-import configparser # Sửa: Thêm import này
+import configparser 
 
-# SỬA 1: Import hàm in (từ POS) và helper căn giữa (từ utils)
 from app.db import fetch_query, execute_query, execute_scalar
 from app.theme import setup_styles
 from app.utils.utils import center_window_relative 
@@ -18,10 +17,12 @@ from app.utils.treeview_helpers import fill_treeview_chunked
 # CÁC HÀM HELPER
 # =========================================================
 
-# (Hàm update_customer_points giữ nguyên)
 def update_customer_points(makh, tongtien):
+    """
+    Cập nhật điểm tích lũy cho khách hàng.
+    Hàm này CHỈ NÊN được gọi SAU KHI thanh toán thành công (từ POS).
+    """
     try:
-        # Sửa: Thêm import configparser
         config = configparser.ConfigParser()
         config.read('config.ini', encoding='utf-8')
         vnd_per_point = config.getint('BusinessLogic', 'VND_PER_POINT', fallback=10000)
@@ -37,11 +38,11 @@ def update_customer_points(makh, tongtien):
                 db.execute_query(query, (diem_cong, makh))
                 
     except Exception as e:
-        print(f"Lỗi cập nhật điểm khách hàng: {e}")
+        print(f"Lỗi cập nhật điểm khách hàng: {e}") # Giữ lại print này vì nó quan trọng
 
 # --- CỬA SỔ CHI TIẾT (READ-ONLY) ---
 def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='Chưa thanh toán'):
-    """SỬA: Cửa sổ CHỈ XEM chi tiết (Đã căn giữa)"""
+    """Cửa sổ CHỈ XEM chi tiết các mặt hàng trong hóa đơn."""
     win = tk.Toplevel(root)
     win.title(f"Chi tiết Hóa đơn {mahd}")
     win.configure(bg="#f5f5f5")
@@ -119,8 +120,8 @@ def invoice_detail_window(root, mahd, parent_refresh=None, trang_thai_hoa_don='C
     ttk.Button(left, text="Đóng", style="Close.TButton", command=win.destroy).pack(side="bottom", pady=10, ipadx=10)
     load_items()
 
-# ---------- OPEN INVOICE DETAIL (HELPER) ----------
 def open_invoice_detail(tree, parent_refresh):
+    """Mở cửa sổ chi tiết (Read-only) cho hóa đơn được chọn."""
     sel = tree.selection()
     if not sel:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn hóa đơn để xem chi tiết.")
@@ -129,8 +130,8 @@ def open_invoice_detail(tree, parent_refresh):
     trang_thai = db.execute_scalar("SELECT TrangThai FROM HoaDon WHERE MaHD = ?", (mahd,))
     invoice_detail_window(tree.master, mahd, parent_refresh, trang_thai)
 
-# ---------- DELETE INVOICE (HELPER) ----------
 def delete_invoice(tree, refresh):
+    """Xóa hóa đơn (và chi tiết hóa đơn liên quan)."""
     selected = tree.selection()
     if not selected:
         messagebox.showwarning("⚠️ Chưa chọn", "Vui lòng chọn hóa đơn cần xóa!")
@@ -142,6 +143,7 @@ def delete_invoice(tree, refresh):
             messagebox.showwarning("Không thể xóa", 
                 f"Hóa đơn {mahd} đã được thanh toán và không thể xóa.")
             return
+            
         count = db.execute_scalar("SELECT COUNT(*) FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,)) or 0
         if count > 0:
             confirm = messagebox.askyesno("Xác nhận",
@@ -152,6 +154,7 @@ def delete_invoice(tree, refresh):
             if not db.execute_query("DELETE FROM ChiTietHoaDon WHERE MaHD = ?", (mahd,)):
                 messagebox.showerror("Lỗi", "Không thể xóa chi tiết hóa đơn, thao tác đã hủy.")
                 return
+                
         safe_delete(
             table_name="HoaDon", key_column="MaHD", key_value=mahd,
             cursor=db.cursor, conn=db.conn,
@@ -163,6 +166,7 @@ def delete_invoice(tree, refresh):
 # HÀM CHÍNH (MAIN MODULE)
 # =========================================================
 def create_invoices_module(parent_frame, employee_id, on_back_callback):
+    """Tạo giao diện module Quản lý Hóa đơn (Chỉ xem)."""
     
     setup_styles()
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
@@ -193,14 +197,12 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
         tree.heading(c, text=headers[c])
         tree.column(c, anchor="center", width=120)
     tree.column("NgayLap", width=140)
-    tree.column("TenKH", width=150, anchor="center")
+    tree.column("TenKH", width=150, anchor="w") # Căn trái
     
     tree.pack(fill="both", expand=True, padx=12, pady=(6,12))
     
-    # =========================================================
-    # SỬA LỖI: HIỂN THỊ "KHÁCH VÃNG LAI"
-    # =========================================================
     def load_data(tree_widget, status_var, keyword=None):
+        """Tải và hiển thị dữ liệu hóa đơn."""
         status_var.set("Đang tải...")
         tree_widget.update_idletasks()
         try:
@@ -228,12 +230,12 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
                 giam = f"{int(r['GiamGia']):,}" if r['GiamGia'] is not None else "0"
                 thu = f"{int(r['ThanhTien']):,}" if r['ThanhTien'] is not None else "0"
                 
-                # SỬA LỖI: Nếu r["TenKH"] là NULL (trống), thì hiển thị "Khách vãng lai"
+                # Nếu r["TenKH"] là NULL (trống), thì hiển thị "Khách vãng lai"
                 ten_kh = r["TenKH"] if r["TenKH"] else "Khách vãng lai"
                 
                 values_tuple = (
                     r["MaHD"].strip(), ngay, r["MaNV"].strip(),
-                    ten_kh, # <-- Đã sửa
+                    ten_kh, 
                     tong, giam, thu,
                     r["TrangThai"] if r["TrangThai"] else "",
                     r["GhiChu"] if r["GhiChu"] else ""
@@ -267,7 +269,7 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
         except Exception as e:
             messagebox.showerror("Lỗi Xuất PDF", f"Không thể tạo file PDF:\n{e}", parent=module_frame)
 
-    # (Các nút khác giữ nguyên)
+    # --- Các nút thanh công cụ ---
     ttk.Button(top, text="🔄 Tải lại", style="Close.TButton",
              command=refresh).pack(side="left", padx=5)
     
@@ -285,15 +287,17 @@ def create_invoices_module(parent_frame, employee_id, on_back_callback):
 
     refresh()
 
-    # (Các hàm bind sự kiện giữ nguyên)
+    # --- Gán sự kiện ---
     search_after = {"id": None}
     def on_search_change(event=None):
+        """Hàm debounce cho tìm kiếm"""
         if search_after["id"]:
             parent_frame.after_cancel(search_after["id"])
         search_after["id"] = parent_frame.after(250, refresh) 
     entry_search.bind("<KeyRelease>", on_search_change)
 
     def on_double_click(event):
+        """Mở chi tiết khi double click"""
         sel = tree.selection()
         if sel:
             open_invoice_detail(tree, refresh)

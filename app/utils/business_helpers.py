@@ -1,32 +1,26 @@
 # app/utils/business_helpers.py
 from tkinter import messagebox
 from datetime import time
-from app import db # Cần để truy cập db.cursor
+from app import db 
 from app.db import execute_query, fetch_query
 from decimal import Decimal
 
-# Import các hàm time helper mà chúng ta vừa tách ra
+# Import các hàm time helper
 from app.utils.time_helpers import parse_time, _time_to_minutes
 
 
 def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=None, allow_partial_overlap=False):
     """
-    Kiểm tra giờ ca:
-     - start_time_str, end_time_str: chuỗi hoặc dạng parseable bởi parse_time()
-     - exclude_maca: nếu sửa ca, bỏ qua MaCa này khi kiểm tra
-     - allow_partial_overlap: nếu True -> cho phép ghi chồng (partial) nhưng vẫn có thể chặn hoàn toàn trùng exact
-       (mặc định False = KHÔNG cho phép bất kỳ overlap nào)
-    Trả về True nếu hợp lệ (không conflict theo chính sách).
+    Kiểm tra xem giờ ca mới có bị trùng (overlap) với các ca đã tồn tại không.
+    Trả về True nếu hợp lệ.
     """
     try:
         t_start = parse_time(start_time_str)
         t_end = parse_time(end_time_str)
     except Exception:
-        t_start = None
-        t_end = None
+        t_start, t_end = None, None
 
     if not t_start or not t_end:
-        # thông báo lỗi format
         messagebox.showwarning("Sai định dạng giờ", "⚠️ Giờ phải có dạng HH:MM (ví dụ 07:30).", parent=parent)
         return False
 
@@ -34,13 +28,10 @@ def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=
         messagebox.showwarning("Giờ không hợp lệ", "⚠️ Giờ kết thúc phải lớn hơn giờ bắt đầu.", parent=parent)
         return False
 
-    # chuyển sang phút để so sánh tiện
     s_min = _time_to_minutes(t_start)
     e_min = _time_to_minutes(t_end)
 
-    # lấy tất cả ca hiện có
     try:
-        # Sử dụng db.cursor toàn cục
         db.cursor.execute("SELECT MaCa, TenCa, GioBatDau, GioKetThuc FROM CaLam ORDER BY MaCa")
         rows = db.cursor.fetchall()
     except Exception as ex:
@@ -49,16 +40,13 @@ def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=
 
     conflicts = []
     for r in rows:
-        # bỏ qua ca đang sửa
         if exclude_maca and str(r.MaCa) == str(exclude_maca):
             continue
 
-        # lấy giờ của ca hiện có, parse
         if getattr(r, "GioBatDau", None) is None or getattr(r, "GioKetThuc", None) is None:
             continue
-        # nếu DB trả về datetime.time hoặc datetime, xử lý tương ứng
+            
         try:
-            # r.GioBatDau có thể là time hoặc str hoặc datetime
             if isinstance(r.GioBatDau, time):
                 s2 = r.GioBatDau
             else:
@@ -76,16 +64,11 @@ def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=
         s2_min = _time_to_minutes(s2)
         e2_min = _time_to_minutes(e2)
 
-        # Kiểm tra overlap chuẩn:
-        # two intervals [s,e) và [s2,e2) overlap nếu s < e2 and s2 < e
         overlap = (s_min < e2_min) and (s2_min < e_min)
 
         if overlap:
             if allow_partial_overlap:
-                # nếu cho phép partial overlap, có thể vẫn chặn exact duplicates (tùy policy)
-                # ở đây ta sẽ cho phép partial overlap, nhưng chặn nếu **exact same interval**
                 if not (s_min == s2_min and e_min == e2_min):
-                    # cho phép partial, skip adding to conflicts
                     continue
                 else:
                     conflicts.append(r)
@@ -93,7 +76,6 @@ def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=
                 conflicts.append(r)
 
     if conflicts:
-        # build message
         conflict_list = ", ".join(
             f"{c.TenCa} ({(c.GioBatDau.strftime('%H:%M') if getattr(c,'GioBatDau',None) else '')}–{(c.GioKetThuc.strftime('%H:%M') if getattr(c,'GioKetThuc',None) else '')})"
             for c in conflicts
@@ -106,13 +88,7 @@ def validate_shift_time(start_time_str, end_time_str, exclude_maca=None, parent=
 
 def safe_delete(table_name, key_column, key_value, cursor, conn, refresh_func=None, item_label="mục"):
     """
-    Hàm xóa dữ liệu an toàn, có xử lý lỗi khóa ngoại.
-    - table_name: tên bảng trong DB (VD: 'NhanVien', 'SanPham')
-    - key_column: tên cột khóa chính (VD: 'MaNV', 'MaSP')
-    - key_value: giá trị cần xóa (VD: 'NV001')
-    - cursor, conn: kết nối DB
-    - refresh_func: hàm làm mới TreeView (nếu có)
-    - item_label: mô tả ngắn gọn (VD: 'nhân viên', 'sản phẩm')
+    Hàm xóa dữ liệu an toàn, có xử lý lỗi khóa ngoại (FOREIGN KEY).
     """
 
     if not key_value:
@@ -147,7 +123,7 @@ def safe_delete(table_name, key_column, key_value, cursor, conn, refresh_func=No
 def recalc_invoice_total(cursor, conn, mahd):
     """
     Tính lại TongTien cho HoaDon.MaHD = mahd dựa trên ChiTietHoaDon.
-    Trả về giá trị tổng (Decimal/float).
+    Trả về giá trị tổng (float).
     """
     cursor.execute("""
         SELECT ISNULL(SUM(SoLuong * DonGia), 0) AS Tong
@@ -160,66 +136,48 @@ def recalc_invoice_total(cursor, conn, mahd):
     conn.commit()
     return total
 
-# =========================================================
-#               THÊM HÀM TRỪ KHO TỰ ĐỘNG
-# =========================================================
 def deduct_inventory_from_recipe(mahd):
     """
     Tự động trừ kho nguyên liệu dựa trên công thức của các món đã bán
     trong một hóa đơn.
     """
-    
-    print(f"[LOG] Bắt đầu trừ kho cho Hóa đơn: {mahd}") # Dòng log để debug
-    
     try:
-        # 1. Lấy tất cả các món đã bán trong hóa đơn này
         items_sold = fetch_query(
             "SELECT MaSP, SoLuong FROM ChiTietHoaDon WHERE MaHD = ?",
             (mahd,)
         )
         
         if not items_sold:
-            print(f"[LOG] Hóa đơn {mahd} không có chi tiết, bỏ qua trừ kho.")
-            return True # Không có gì để làm
+            return True 
 
-        # Dùng một dictionary để tổng hợp SỐ LƯỢNG NGUYÊN LIỆU cần trừ
-        # Key: MaNL, Value: SoLuongCanTru
         total_deductions = {}
 
-        # 2. Lặp qua TỪNG MÓN HÀNG đã bán
         for item in items_sold:
             masp = item['MaSP']
             quantity_sold = int(item['SoLuong'])
             
-            # 3. Lấy công thức cho món hàng đó
             recipe = fetch_query(
                 "SELECT MaNL, SoLuong FROM CongThuc WHERE MaSP = ?",
                 (masp,)
             )
             
             if not recipe:
-                print(f"[LOG] Sản phẩm {masp} không có công thức, bỏ qua.")
-                continue # Chuyển sang món tiếp theo
+                continue 
 
-            # 4. Lặp qua TỪNG NGUYÊN LIỆU trong công thức
             for ingredient in recipe:
                 manl = ingredient['MaNL']
-                # Lượng NL cho 1 món * số lượng món đã bán
                 try:
                     qty_needed_per_item = Decimal(ingredient['SoLuong'])
                     total_to_deduct = qty_needed_per_item * quantity_sold
                 except Exception:
-                    continue # Bỏ qua nếu dữ liệu công thức bị lỗi
+                    continue 
 
-                # 5. Thêm vào dictionary tổng
                 if manl in total_deductions:
                     total_deductions[manl] += total_to_deduct
                 else:
                     total_deductions[manl] = total_to_deduct
 
-        # 6. Lặp qua dictionary tổng và TRỪ KHO (chỉ 1 lần cho mỗi NL)
         if not total_deductions:
-             print(f"[LOG] Hóa đơn {mahd} không có nguyên liệu nào để trừ.")
              return True
              
         for manl, total_to_deduct in total_deductions.items():
@@ -228,16 +186,14 @@ def deduct_inventory_from_recipe(mahd):
                 SET SoLuongTon = SoLuongTon - ? 
                 WHERE MaNL = ?
             """
-            # (Chúng ta chấp nhận tồn kho âm ở giai đoạn này)
             if not execute_query(query_update, (float(total_to_deduct), manl)):
-                # Nếu một NL bị lỗi, vẫn tiếp tục trừ các NL khác
-                print(f"[LỖI] Không thể trừ kho {total_to_deduct} cho {manl}.")
+                # Ghi lại lỗi một cách thầm lặng nếu 1 NL bị lỗi,
+                # nhưng vẫn tiếp tục trừ các NL khác.
+                pass
         
-        print(f"[LOG] Đã trừ kho thành công cho Hóa đơn: {mahd}")
         return True
 
     except Exception as e:
-        # Hiển thị lỗi nghiêm trọng
         messagebox.showerror("Lỗi Trừ Kho Nghiêm trọng", 
                              f"Đã xảy ra lỗi khi tự động trừ kho cho HD {mahd}:\n{e}")
         return False

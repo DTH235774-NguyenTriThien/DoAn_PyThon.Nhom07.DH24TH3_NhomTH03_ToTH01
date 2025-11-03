@@ -1,7 +1,6 @@
 # app/utils/utils.py
 import tkinter as tk
 from tkinter import ttk
-# SỬA 1: Thêm 2 import cần thiết cho resource_path
 import os
 import sys
 
@@ -9,10 +8,6 @@ import sys
 Hàm tiện ích UI dùng chung trong app.
 """
 
-# =========================================================
-# SỬA 2: THÊM HÀM `resource_path` (DÙNG CHO ĐÓNG GÓI .EXE)
-# (Đây là hàm bị thiếu)
-# =========================================================
 def resource_path(relative_path):
     """ 
     Lấy đường dẫn tuyệt đối đến tài nguyên, hoạt động cho cả .py (dev) 
@@ -20,11 +15,9 @@ def resource_path(relative_path):
     """
     try:
         # PyInstaller tạo một thư mục temp và lưu đường dẫn trong _MEIPASS
-        # os.path.join(sys._MEIPASS, relative_path)
-        # Sửa lại cho đúng cấu trúc: file .exe sẽ ở cùng cấp với app/
         base_path = sys._MEIPASS
     except Exception:
-        # Nếu chạy bằng .py, base_path là thư mục gốc của dự án (Doan_Python)
+        # Nếu chạy bằng .py, base_path là thư mục gốc của dự án
         # (Giả định utils.py nằm trong app/utils/)
         base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -36,13 +29,10 @@ def clear_window(root):
     for widget in root.winfo_children():
         widget.destroy()
 
-# =========================================================
-# HÀM TẠO CỬA SỔ POP-UP (Đã sửa để căn giữa)
-# =========================================================
 def create_form_window(title, size="430x500", bg="#f8f9fa"):
     """
     Tạo cửa sổ form chuẩn (popup) dùng cho các module Add/Edit.
-    (Đã thêm logic tự động căn giữa)
+    (Đã tích hợp logic tự động căn giữa)
     """
     win = tk.Toplevel()
     win.title(title)
@@ -54,12 +44,12 @@ def create_form_window(title, size="430x500", bg="#f8f9fa"):
         width = int(width_str)
         height = int(height_str)
         
-        # Gọi hàm helper center_window_relative
+        # Tự động căn giữa
         center_window_relative(win, win.master, width, height) 
         
     except ValueError:
+        # Fallback nếu size không đúng định dạng
         win.geometry(size)
-        print(f"Cảnh báo: Chuỗi size '{size}' không hợp lệ, không thể căn giữa.")
 
     form = tk.Frame(win, bg=bg)
     form.pack(padx=20, pady=15, fill="both", expand=True)
@@ -67,7 +57,7 @@ def create_form_window(title, size="430x500", bg="#f8f9fa"):
     return win, form
 
 def go_back(root, username=None, role=None, on_exit_callback=None):
-    """ (Hàm này đã cũ) """
+    """ (Hàm này đã cũ, không còn được các module mới sử dụng) """
     from app.ui.mainmenu_frame import show_main_menu
     show_main_menu(root, username, role, on_exit_callback)
 
@@ -80,9 +70,6 @@ def center_window(win, width, height, offset_y=-30):
     y = int((screen_height / 2) - (height / 2) + offset_y)
     win.geometry(f"{width}x{height}+{x}+{y}")
 
-# =========================================================
-# HÀM CĂN GIỮA POP-UP (Đã thêm ở bước trước)
-# =========================================================
 def center_window_relative(popup_window, parent_window, width, height):
     """
     Canh giữa một cửa sổ Toplevel (popup) so với cửa sổ cha (parent).
@@ -99,5 +86,6 @@ def center_window_relative(popup_window, parent_window, width, height):
 
     popup_window.geometry(f"{width}x{height}+{x}+{y}")
     
+    # Đảm bảo popup ở trên cùng và khóa cửa sổ cha
     popup_window.transient(parent_window)
     popup_window.grab_set()

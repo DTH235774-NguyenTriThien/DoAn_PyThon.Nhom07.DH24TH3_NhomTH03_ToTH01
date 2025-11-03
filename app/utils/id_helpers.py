@@ -8,7 +8,6 @@ def generate_next_manv(cursor):
     cursor.execute("SELECT MaNV FROM NhanVien")
     rows = [r.MaNV.strip().upper() for r in cursor.fetchall() if r.MaNV]
 
-    # Lọc các mã hợp lệ NVxxx
     numbers = []
     for code in rows:
         if code.startswith("NV"):
@@ -82,7 +81,6 @@ def generate_next_macc(cursor):
     """
     Sinh mã chấm công (MaCham) mới — tự động tìm khoảng trống nhỏ nhất.
     Nếu bảng rỗng, bắt đầu từ 1.
-    Ví dụ: [1,2,4] -> trả về 3.
     """
     try:
         cursor.execute("SELECT MaCham FROM ChamCong ORDER BY MaCham ASC")
@@ -90,10 +88,8 @@ def generate_next_macc(cursor):
         if not rows:
             return 1
 
-        # Lấy tất cả mã hiện có (chuyển sang int)
         existing = [r.MaCham for r in rows if r.MaCham is not None]
 
-        # Tìm khoảng trống nhỏ nhất
         expected = 1
         for val in existing:
             if val != expected:
@@ -101,35 +97,30 @@ def generate_next_macc(cursor):
             expected += 1
         return expected
     except Exception as e:
-        print("[generate_next_macc] Lỗi:", e)
+        # (Đã xóa print)
         return 1
 
 def generate_next_maca(cursor):
     """
-    Sinh mã ca (MaCa) mới:
-    - Bắt đầu từ 1.
-    - Tự động tìm khoảng trống nhỏ nhất chưa dùng.
-    - Hoạt động tốt dù đã xóa 1 vài ca giữa chừng.
+    Sinh mã ca (MaCa) mới, tự động tìm khoảng trống nhỏ nhất chưa dùng.
     """
     try:
         cursor.execute("SELECT MaCa FROM CaLam ORDER BY MaCa ASC")
         rows = cursor.fetchall()
 
         if not rows:
-            return 1  # nếu bảng rỗng → bắt đầu từ 1
+            return 1 
 
         existing_ids = [r.MaCa for r in rows if r.MaCa is not None]
         expected = 1
         for value in existing_ids:
             if value != expected:
-                # nếu phát hiện khoảng trống
                 return expected
             expected += 1
 
-        # nếu không có khoảng trống thì tăng tiếp
         return expected
     except Exception as e:
-        print(f"[generate_next_maca] Lỗi: {e}")
+        # (Đã xóa print)
         return 1
     
 def generate_next_manl(cursor):
@@ -151,5 +142,5 @@ def generate_next_manl(cursor):
             next_num += 1
         return f"NL{next_num:03d}"
     except Exception as e:
-        print(f"[generate_next_manl] Lỗi: {e}")
+        # (Đã xóa print)
         return "NL001"

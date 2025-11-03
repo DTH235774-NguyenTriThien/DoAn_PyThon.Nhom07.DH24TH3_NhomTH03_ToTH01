@@ -14,7 +14,6 @@ def normalize_text(text: str) -> str:
     text = text.lower().strip()
     
     # Loại bỏ dấu (convert to ASCII compatible)
-    # Ví dụ: 'Nguyễn' -> 'nguyen'
     try:
         text = str(unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8'))
     except Exception:

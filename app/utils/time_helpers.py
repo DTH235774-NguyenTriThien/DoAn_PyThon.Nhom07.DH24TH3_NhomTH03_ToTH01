@@ -1,9 +1,8 @@
 # app/utils/time_helpers.py
 from datetime import datetime, date, time
 
-# Định dạng datetime để lưu vào db
 def _time_to_minutes(t):
-    """Chuyển datetime.time -> phút từ 00:00"""
+    """Chuyển datetime.time -> số phút tính từ 00:00"""
     if t is None:
         return None
     return t.hour * 60 + t.minute
@@ -37,9 +36,8 @@ def parse_date(s):
             return datetime.strptime(s, fmt).date()
         except Exception:
             continue
-    # nếu không parse được, cố thử chỉ lấy phần ngày nếu chứa space/time
+    # Fallback: thử parse ISO
     try:
-        # fallback: try parse ISO
         return datetime.fromisoformat(s).date()
     except Exception:
         return None
@@ -55,7 +53,7 @@ def format_for_display(d):
     return d.strftime("%d/%m/%Y")
 
 def format_for_input(d):
-    """Định dạng date object để prefill input (YYYY-MM-DD) — dễ sửa bằng keyboard"""
+    """Định dạng date object để prefill input (YYYY-MM-DD)"""
     if not d:
         return ""
     if isinstance(d, str):
@@ -65,7 +63,9 @@ def format_for_input(d):
     return d.strftime("%Y-%m-%d")
 
 def normalize_date_input(val):
-
+    """
+    Chuẩn hóa nhiều loại input (str, datetime, date) về datetime.date.
+    """
     if val is None:
         return None
 
@@ -82,14 +82,14 @@ def normalize_date_input(val):
         s = val.strip()
         if s == "":
             return None
-        # thử các định dạng phổ biến
+        # Thử các định dạng phổ biến
         fmts = ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y", "%Y.%m.%d")
         for fmt in fmts:
             try:
                 return datetime.strptime(s, fmt).date()
             except Exception:
                 continue
-        # fallback: nếu chuỗi có time phần (iso), thử fromisoformat
+        # Fallback: nếu chuỗi có time (iso)
         try:
             return datetime.fromisoformat(s).date()
         except Exception:
@@ -97,7 +97,6 @@ def normalize_date_input(val):
 
         raise ValueError(f"Không nhận diện được định dạng ngày: '{val}'")
 
-    # nếu loại không được hỗ" trợ
     raise ValueError(f"Kiểu dữ liệu ngày không hợp lệ: {type(val)}")
 
 def format_time_for_display(dt):

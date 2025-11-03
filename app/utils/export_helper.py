@@ -5,17 +5,17 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from datetime import datetime
 from fpdf import FPDF
 from tkinter import filedialog
-from app.db import fetch_query # Đảm bảo fetch_query được import
+from app.db import fetch_query 
 from tkinter import messagebox
+from app.utils.utils import resource_path
 
 def export_to_excel_from_query(parent_window, cursor, query, headers, title="Dữ liệu"):
     """
     Helper xuất dữ liệu từ query ra Excel với định dạng đẹp.
-    (SỬA: Đã thêm filedialog để hỏi nơi lưu)
+    Sử dụng filedialog để hỏi nơi lưu.
     """
-
     try:
-        # === SỬA: Hỏi người dùng nơi lưu file ===
+        # --- Hỏi người dùng nơi lưu file ---
         now = datetime.now()
         default_filename = f"{title.replace(' ', '_')}_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
         
@@ -30,11 +30,7 @@ def export_to_excel_from_query(parent_window, cursor, query, headers, title="D�
         if not file_path:
             return # Người dùng nhấn Hủy
 
-        # === SỬA: Xóa logic tạo thư mục 'exports' ===
-        # export_dir = "exports" ...
-        # filepath = os.path.join(export_dir, filename)
-
-        # === Chạy truy vấn ===
+        # --- Chạy truy vấn ---
         cursor.execute(query)
         rows = cursor.fetchall()
 
@@ -42,7 +38,7 @@ def export_to_excel_from_query(parent_window, cursor, query, headers, title="D�
             messagebox.showinfo("Không có dữ liệu", "⚠️ Không có dữ liệu để xuất!", parent=parent_window)
             return
 
-        # === Tạo workbook (Giữ nguyên) ===
+        # --- Tạo workbook ---
         wb = Workbook()
         ws = wb.active
         ws.title = title[:31] 
@@ -52,7 +48,7 @@ def export_to_excel_from_query(parent_window, cursor, query, headers, title="D�
         for row in rows:
             ws.append([str(item).strip() if item is not None else "" for item in row])
 
-        # (Định dạng giữ nguyên)
+        # --- Định dạng ---
         bold_font = Font(bold=True)
         center = Alignment(horizontal="center", vertical="center")
         fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
@@ -67,7 +63,7 @@ def export_to_excel_from_query(parent_window, cursor, query, headers, title="D�
                 max_length = max(max_length, len(str(cell.value)) if cell.value else 0)
             ws.column_dimensions[col[0].column_letter].width = max_length + 2
 
-        # SỬA: Lưu vào đường dẫn người dùng đã chọn
+        # --- Lưu file ---
         wb.save(file_path)
         
         messagebox.showinfo("✅ Xuất thành công", f"Đã lưu file Excel:\n{file_path}", parent=parent_window)
@@ -79,9 +75,9 @@ def export_to_excel_from_query(parent_window, cursor, query, headers, title="D�
 # HELPER XUẤT HÓA ĐƠN PDF
 # =========================================================
 class PDFReceipt(FPDF):
-    """Lớp tùy chỉnh để thêm Header/Footer nếu cần (hiện tại chỉ để set font)"""
+    """Lớp tùy chỉnh FPDF để thêm font Tiếng Việt và footer."""
     def header(self):
-        pass # Chúng ta sẽ tự vẽ header trong hàm chính
+        pass # Header tùy chỉnh được vẽ trong hàm chính
 
     def footer(self):
         self.set_y(-15)
@@ -93,8 +89,7 @@ def export_invoice_to_pdf(mahd, parent_window):
     Hàm cấp cao: Lấy dữ liệu, tạo file PDF, và hỏi nơi lưu.
     """
     try:
-        # SỬA 1: THAY ĐỔI TRUY VẤN (QUERY)
-        # Chúng ta JOIN với NhanVien để lấy HoTen (Tên NV)
+        # 1. Lấy dữ liệu Hóa đơn (JOIN NhanVien)
         query_hd = """
             SELECT h.*, nv.HoTen AS TenNV
             FROM HoaDon h
@@ -104,6 +99,7 @@ def export_invoice_to_pdf(mahd, parent_window):
         hd_data = fetch_query(query_hd, (mahd,))
         if not hd_data: raise Exception(f"Không tìm thấy Hóa đơn {mahd}.")
         
+        # 2. Lấy dữ liệu Chi tiết Hóa đơn
         cthd_data = fetch_query("""
             SELECT cthd.SoLuong, cthd.DonGia, sp.TenSP, cthd.GhiChu, cthd.ThanhTien
             FROM ChiTietHoaDon cthd
@@ -112,14 +108,15 @@ def export_invoice_to_pdf(mahd, parent_window):
         """, (mahd,))
         if not cthd_data: raise Exception(f"Không tìm thấy Chi tiết Hóa đơn cho {mahd}.")
         
+        # 3. Lấy dữ liệu Khách hàng
         kh_data = None
         if hd_data[0].get('MaKH'):
             kh_result = fetch_query("SELECT TenKH FROM KhachHang WHERE MaKH = ?", (hd_data[0]['MaKH'],))
             if kh_result: kh_data = kh_result[0]
             
-        hd = hd_data[0] # Lấy dictionary của hóa đơn
+        hd = hd_data[0] 
 
-        # 2. Hỏi người dùng nơi lưu file
+        # 4. Hỏi người dùng nơi lưu file
         default_filename = f"HoaDon_{mahd}.pdf"
         file_path = filedialog.asksaveasfilename(
             parent=parent_window,
@@ -132,11 +129,12 @@ def export_invoice_to_pdf(mahd, parent_window):
         if not file_path:
             return # Người dùng nhấn Hủy
 
-        # 3. Tạo file PDF
+        # 5. Tạo file PDF
         pdf = PDFReceipt(orientation='P', unit='mm', format='A5') # Giấy A5
         
-        # 4. Thêm Font Tiếng Việt (BẮT BUỘC)
-        font_path = os.path.join('app', 'assets', 'fonts', 'DejaVuSans.ttf')
+        # 6. Thêm Font Tiếng Việt (BẮT BUỘC)
+        font_path = resource_path(os.path.join('app', 'assets', 'fonts', 'DejaVuSans.ttf'))
+        
         if not os.path.exists(font_path):
                  raise Exception("Lỗi Font: Không tìm thấy file 'DejaVuSans.ttf' trong 'app/assets/fonts/'.")
                  
@@ -148,13 +146,11 @@ def export_invoice_to_pdf(mahd, parent_window):
         
         # --- Vẽ nội dung (HEADER) ---
         pdf.set_font('DejaVu', 'B', 16)
-        
-        # SỬA 2: SỬA TÊN QUÁN VÀ ĐỊA CHỈ (Bạn đã tự sửa)
         pdf.cell(0, 10, "Quán Cà Phê Thiện Và Lý", 0, 1, 'C')
         pdf.set_font('DejaVu', '', 9)
         pdf.cell(0, 5, "64, Lý Thái Tổ, phường Đông Xuyên, thành phố Long Xuyên", 0, 1, 'C')
         pdf.cell(0, 5, "Hotline: 0909.123.456", 0, 1, 'C')
-        pdf.ln(5) # Ngắt dòng
+        pdf.ln(5) 
         
         pdf.set_font('DejaVu', 'B', 14)
         pdf.cell(0, 10, "HOA DON BAN LE", 0, 1, 'C')
@@ -165,18 +161,17 @@ def export_invoice_to_pdf(mahd, parent_window):
         now = hd.get('NgayLap', datetime.now()).strftime("%d/%m/%Y %H:%M")
         pdf.cell(0, 6, f"So HD: {mahd}         Ngay: {now}", 0, 1)
         
-        # SỬA 3: SỬ DỤNG CỘT `TenNV` (đã lấy từ JOIN)
         thu_ngan_name = hd.get('TenNV') or hd.get('MaNV') or 'N/A'
         pdf.cell(0, 6, f"Thu ngan: {str(thu_ngan_name)}", 0, 1)
         
         if kh_data:
             pdf.cell(0, 6, f"Khach hang: {kh_data.get('TenKH', 'N/A')}", 0, 1)
         
-        pdf.ln(5) # Ngắt dòng
+        pdf.ln(5) 
 
         # --- Vẽ Bảng (Chi tiết món) ---
         pdf.set_font('DejaVu', 'B', 10)
-        pdf.set_fill_color(230, 230, 230) # Màu xám nhạt cho header
+        pdf.set_fill_color(230, 230, 230) 
         
         pdf.cell(60, 8, "Ten Mon", 1, 0, 'C', True)
         pdf.cell(15, 8, "SL", 1, 0, 'C', True)
@@ -192,13 +187,13 @@ def export_invoice_to_pdf(mahd, parent_window):
             
             if item.get('GhiChu'):
                 pdf.set_font('DejaVu', 'I', 8)
-                pdf.set_text_color(100, 100, 100) # Màu xám
+                pdf.set_text_color(100, 100, 100) 
                 pdf.cell(60, 5, f"  (Ghi chu: {item['GhiChu']})")
-                pdf.cell(70, 5, "", 0, 1) # Ô trống
+                pdf.cell(70, 5, "", 0, 1) 
                 pdf.set_font('DejaVu', '', 9)
-                pdf.set_text_color(0, 0, 0) # Reset màu
+                pdf.set_text_color(0, 0, 0) 
 
-        pdf.ln(5) # Ngắt dòng
+        pdf.ln(5) 
 
         # --- Vẽ Tổng tiền ---
         pdf.set_font('DejaVu', 'B', 10)
@@ -219,11 +214,10 @@ def export_invoice_to_pdf(mahd, parent_window):
         pdf.set_font('DejaVu', 'I', 10)
         pdf.cell(0, 10, "Cam on quy khach! Hen gap lai!", 0, 1, 'C')
 
-        # 5. Lưu file
+        # 7. Lưu file
         pdf.output(file_path)
         
         return True
     
     except Exception as e:
-        # Ném lỗi lên để module gọi (invoices.py) hiển thị
         raise e

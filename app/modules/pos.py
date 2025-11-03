@@ -9,7 +9,8 @@ from datetime import datetime
 from app.utils.report_helpers import print_pos_receipt
 import configparser
 import os 
-from app.utils.utils import center_window_relative
+# Thêm import resource_path từ utils
+from app.utils.utils import center_window_relative, resource_path
 
 try:
     from PIL import Image, ImageTk
@@ -36,45 +37,30 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     current_customer_info = {}
     vnd_per_point_ratio = 100 
 
-    # --- Frame chính của module ---
+    # --- Frame chính của module (Giữ nguyên) ---
     module_frame = tk.Frame(parent_frame, bg="#f5e6ca")
-    
-    # --- Header ---
     header = tk.Frame(module_frame, bg="#4b2e05", height=70)
     header.pack(fill="x")
     tk.Label(header, text="🛒 BÁN HÀNG TẠI QUẦY (POS)", bg="#4b2e05", fg="white",
              font=("Segoe UI", 16, "bold")).pack(side="left", padx=15, pady=12)
-    
     btn_back = ttk.Button(header, text="⬅ Quay lại", style="Close.TButton")
     btn_back.pack(side="right", padx=15)
-
-    # --- Khung Giao diện 2 Cột (dùng GRID) ---
     main_content_frame = tk.Frame(module_frame, bg="#f5e6ca")
     main_content_frame.pack(fill="both", expand=True, padx=10, pady=10)
-    
     main_content_frame.grid_rowconfigure(0, weight=1)
-    main_content_frame.grid_columnconfigure(0, weight=3) # Cột 1: Menu
-    main_content_frame.grid_columnconfigure(1, weight=2) # Cột 2: Giỏ hàng/Thanh toán
-
-    # =========================================================
-    # CỘT 2: GIỎ HÀNG & ĐIỀU KHIỂN
-    # =========================================================
-    
+    main_content_frame.grid_columnconfigure(0, weight=3)
+    main_content_frame.grid_columnconfigure(1, weight=2)
     controls_frame = tk.Frame(main_content_frame, bg="#f5e6ca")
     controls_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
     controls_frame.grid_columnconfigure(0, weight=1) 
-    controls_frame.grid_rowconfigure(0, weight=1, minsize=200) # Hàng 0: Giỏ hàng
-    controls_frame.grid_rowconfigure(1, weight=0) # Hàng 1: Khách hàng
-    controls_frame.grid_rowconfigure(2, weight=0) # Hàng 2: Hành động
-
-    # --- Khung Giỏ hàng (Cột 2, Hàng 0) ---
-    cart_frame_label = " 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) "
-    cart_frame = ttk.LabelFrame(controls_frame, text=cart_frame_label)
+    controls_frame.grid_rowconfigure(0, weight=1, minsize=200)
+    controls_frame.grid_rowconfigure(1, weight=0)
+    controls_frame.grid_rowconfigure(2, weight=0)
+    cart_frame = ttk.LabelFrame(controls_frame, text=" 2. Giỏ Hàng (Nhấn +, -, Delete hoặc Double-click) ")
     cart_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 5))
     cart_frame.grid_rowconfigure(0, weight=1) 
     cart_frame.grid_rowconfigure(1, weight=0) 
     cart_frame.grid_columnconfigure(0, weight=1)
-
     cart_cols = ("TenSP", "SL", "DonGia", "GhiChu")
     tree_cart = ttk.Treeview(cart_frame, columns=cart_cols, show="headings", height=10) 
     tree_cart.heading("TenSP", text="Tên Sản Phẩm"); tree_cart.column("TenSP", width=150, anchor="w")
@@ -85,10 +71,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     cart_scroll = ttk.Scrollbar(cart_frame, orient="vertical", command=tree_cart.yview)
     cart_scroll.grid(row=0, column=1, sticky="ns")
     tree_cart.configure(yscrollcommand=cart_scroll.set)
-    
-    tree_cart.counter = 0 # Gán biến đếm (counter) vào tree_cart
-
-    # --- Khung Tổng tiền ---
+    tree_cart.counter = 0
     total_frame = tk.Frame(cart_frame, bg="#f5e6ca")
     total_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5) 
     total_frame.grid_columnconfigure(1, weight=1) 
@@ -101,8 +84,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     ttk.Label(total_frame, textvariable=discount_var, font=("Segoe UI", 12)).grid(row=1, column=1, sticky="e", padx=5)
     ttk.Label(total_frame, text="KHÁCH CẦN TRẢ:", font=("Segoe UI", 16, "bold"), foreground="#d32f2f").grid(row=2, column=0, sticky="w", padx=5, pady=5)
     ttk.Label(total_frame, textvariable=final_total_var, font=("Segoe UI", 16, "bold"), foreground="#d32f2f").grid(row=2, column=1, sticky="e", padx=5, pady=5)
-
-    # --- Khung Khách hàng (Cột 2, Hàng 1) ---
     cust_group = ttk.LabelFrame(controls_frame, text=" 3. Khách hàng (Tìm theo SĐT/Tên) ")
     cust_group.grid(row=1, column=0, sticky="new", pady=5) 
     cust_group.grid_columnconfigure(0, weight=1)
@@ -116,8 +97,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                                      variable=use_points_var, state="disabled",
                                      command=lambda: update_totals())
     chk_use_points.grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5)
-
-    # --- Khung Hành động (Cột 2, Hàng 2) ---
     action_group = ttk.LabelFrame(controls_frame, text=" 4. Hành động ")
     action_group.grid(row=2, column=0, sticky="new", pady=10) 
     action_group.grid_columnconfigure(0, weight=1)
@@ -130,10 +109,7 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
     btn_recalc = ttk.Button(action_group, text="💰 Tạm tính", style="Close.TButton")
     btn_recalc.grid(row=1, column=2, sticky="ew", padx=5, pady=5, ipady=8) 
 
-
-    # =========================================================
-    # HÀM CẬP NHẬT TỔNG TIỀN
-    # =========================================================
+    # (Các hàm logic cơ bản giữ nguyên)
     def update_totals():
         """Tính toán và cập nhật 3 nhãn tổng tiền (bao gồm cả giảm giá)."""
         nonlocal current_customer_info, vnd_per_point_ratio
@@ -157,15 +133,13 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         discount_var.set(f"{int(discount):,} đ")
         final_total_var.set(f"{int(final_total):,} đ")
 
-    # =========================================================
-    # CÁC HÀM XỬ LÝ GIỎ HÀNG
-    # =========================================================
     def add_item_to_cart(product_info, notes):
         """Thêm 1 sản phẩm vào giỏ hàng VỚI GHI CHÚ."""
+        tree_cart.counter += 1
+        new_iid = f"item_{tree_cart.counter}" 
         masp = product_info['MaSP']
         tensp = product_info['TenSP']
         dongia = Decimal(product_info['DonGia'])
-        
         item_to_increment = None
         if not notes: 
             for iid in tree_cart.get_children():
@@ -173,7 +147,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 if tags and tags[0] == masp and tags[1] == "":
                     item_to_increment = iid
                     break
-        
         if item_to_increment:
             tree_cart.selection_set(item_to_increment) 
             tree_cart.focus(item_to_increment)         
@@ -184,17 +157,11 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             if notes:
                 tensp_display = f"{tensp} ({notes})" 
             values = (tensp_display, sl, f"{int(dongia):,}", notes)
-            
-            tree_cart.counter += 1
-            new_iid = f"item_{tree_cart.counter}" 
-            
             tags = (masp, notes)
             tree_cart.insert("", "end", iid=new_iid, values=values, tags=tags)
-        
         update_totals() 
 
     def increment_quantity():
-        """Tăng số lượng của món đang chọn (đang focus) lên 1."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -207,7 +174,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         update_totals()
 
     def decrement_quantity():
-        """Giảm số lượng của món đang chọn (đang focus) đi 1. Nếu về 0 thì xóa."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -223,7 +189,6 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             update_totals()
 
     def remove_item_from_cart():
-        """Xóa món đang chọn (đang focus) khỏi giỏ hàng."""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
@@ -244,16 +209,11 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
             chk_use_points.config(state="disabled")
             update_totals()
 
-    # =========================================================
-    # HÀM TÙY CHỌN (MODIFIERS)
-    # =========================================================
     def show_options_window(product_info):
         """Mở cửa sổ Toplevel để nhập Ghi chú/Tùy chọn"""
         win = tk.Toplevel(module_frame)
         win.title(f"Tùy chọn cho: {product_info['TenSP']}")
         win.configure(bg="#f8f9fa")
-        
-        # Tự động căn giữa
         center_window_relative(win, module_frame, 350, 200)
         
         form = tk.Frame(win, bg="#f8f9fa", padx=15, pady=10)
@@ -300,16 +260,11 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
         win.bind("<Return>", lambda e: on_confirm())
         win.bind("<Escape>", lambda e: win.destroy())
 
-
-    # =========================================================
-    # SỰ KIỆN (DOUBLE-CLICK VÀ KEYPRESS)
-    # =========================================================
     def on_cart_double_click(event):
         """Sửa số lượng khi double-click vào giỏ hàng"""
         selected_iid = tree_cart.focus()
         if not selected_iid:
             return
-        
         values = tree_cart.item(selected_iid, "values")
         tensp_display, sl_hien_tai, dongia_str, notes = values
         sl_hien_tai = int(sl_hien_tai)
@@ -440,11 +395,18 @@ def create_pos_module(parent_frame, employee_id, on_back_callback):
                 gia = f"{int(prod['DonGia']):,}"
                 btn_text = f"{prod['TenSP']}\n({gia} đ)"
                 
-                img_path = prod.get('ImagePath') 
+                # SỬA LỖI: Dùng resource_path cho ảnh thật
+                img_path_db = prod.get('ImagePath') 
                 
-                if not img_path or not os.path.exists(img_path):
-                    img_path = placeholder_path 
+                if not img_path_db:
+                    img_path = placeholder_path
+                else:
+                    # Quan trọng: Sử dụng resource_path cho đường dẫn từ CSDL
+                    img_path = resource_path(img_path_db.replace('\\', '/')) 
                 
+                if not os.path.exists(img_path):
+                    img_path = placeholder_path # Fallback nếu ảnh thật không tìm thấy
+
                 try:
                     img = Image.open(img_path)
                     img_resized = img.resize((100, 100), Image.Resampling.LANCZOS)

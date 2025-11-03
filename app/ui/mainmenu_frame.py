@@ -2,13 +2,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os 
-from app.utils.utils import clear_window, center_window 
+from app.utils.utils import clear_window, center_window, resource_path
 from app.db import close_db_connection 
 from app.utils.report_helpers import get_dashboard_kpis
-
-# SỬA 1: Đảm bảo util (nơi có resource_path) được import
-# (Giả sử resource_path nằm trong utils.py, nếu chưa có, chúng ta sẽ thêm sau)
-from app.utils.utils import resource_path 
 
 try:
     from PIL import Image, ImageTk
@@ -19,6 +15,10 @@ except ImportError:
     print("Sẽ sử dụng icon text dự phòng.")
 
 def show_main_menu(root, username_display, role, on_exit_callback=None, employee_id=None):
+    """
+    Hiển thị giao diện menu chính (Sidebar) của ứng dụng.
+    Đây là trung tâm điều hướng, quản lý việc tải và hiển thị các module con.
+    """
     clear_window(root)
     root.title(f"Hệ thống Quản lý Quán Cà Phê - Chào {username_display} ({role})")
     root.configure(bg="#f5e6ca") 
@@ -64,18 +64,18 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     main_frame = tk.Frame(root, bg="#f5e6ca")
     main_frame.pack(fill="both", expand=True)
     main_frame.grid_rowconfigure(0, weight=1)
-    main_frame.grid_columnconfigure(1, weight=1) 
+    main_frame.grid_columnconfigure(1, weight=1) # Cột content co giãn
 
     # --- Sidebar Frame (Khung bên trái) ---
     sidebar_frame = tk.Frame(main_frame, bg="#4b2e05", width=220)
     sidebar_frame.grid(row=0, column=0, sticky="nswe")
     sidebar_frame.grid_propagate(False) 
 
-    # (Logo, Tên quán)
+    # --- Logo và Tên quán ---
     logo_label = tk.Label(sidebar_frame, bg="#4b2e05")
     logo_image_tk = None 
     if PILLOW_AVAILABLE:
-        # SỬA: Dùng resource_path để tìm ảnh (quan trọng khi đóng gói)
+        # Dùng resource_path để tìm ảnh (quan trọng khi đóng gói)
         logo_path = resource_path(os.path.join('app', 'assets', 'coffee_icon.png'))
         try:
             img = Image.open(logo_path)
@@ -88,30 +88,37 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     else:
         logo_label.config(text="☕", font=("Segoe UI Emoji", 30), fg="#d7ccc8")
     logo_label.pack(pady=(20, 0))
-    logo_label.image = logo_image_tk 
+    logo_label.image = logo_image_tk # Giữ tham chiếu
     tk.Label(sidebar_frame, text="CAFE MANAGER", font=("Segoe UI", 16, "bold"), bg="#4b2e05", fg="white").pack(pady=(0, 20))
     
-    # (Code các nút Sidebar và logic load_module giữ nguyên)
+    # --- Các nút điều hướng (Menu Items) ---
     menu_buttons_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
     menu_buttons_frame.pack(fill="x", expand=True, pady=10)
-    sidebar_buttons = [] 
+
+    # Danh sách (List) để lưu các nút (quan trọng cho điều hướng phím)
+    sidebar_buttons = [] # Cấu trúc: { "name": "...", "button": ... }
     current_module_frame = None
-    current_selection_index = 0 
+    current_selection_index = 0 # 0 = Dashboard
     
     def clear_content_frame():
+        """Xóa tất cả widget con trong content_frame."""
         for widget in content_frame.winfo_children():
             widget.destroy()
 
     def set_active_button(module_name_to_activate):
+        """Highlight nút được chọn và cập nhật index."""
         nonlocal current_selection_index
         for i, btn_info in enumerate(sidebar_buttons):
             if btn_info["name"] == module_name_to_activate:
                 btn_info["button"].configure(style="Sidebar.Active.TButton")
-                current_selection_index = i 
+                current_selection_index = i # Cập nhật index
             else:
                 btn_info["button"].configure(style="Sidebar.TButton")
                 
     def load_module(module_name):
+        """Tải module con vào content_frame, xử lý phân quyền."""
+        
+        # --- Kiểm tra Phân quyền ---
         is_admin = (role == 'Admin') 
         restricted_modules = {
             "Employees": "Quản lý Nhân viên",
@@ -125,22 +132,28 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
                                    parent=root)
             return 
         
+        # --- Highlight nút ---
         set_active_button(module_name)
+
+        # --- Dọn dẹp và Tải ---
         nonlocal current_module_frame
         clear_content_frame() 
 
         def on_back_to_dashboard_callback():
+            """Hàm callback được gọi khi module con nhấn 'Quay lại'."""
             nonlocal current_module_frame
             if current_module_frame:
                 current_module_frame.destroy()
                 current_module_frame = None
+            
             show_dashboard_content() 
-            set_active_button("Dashboard") 
+            set_active_button("Dashboard") # Kích hoạt lại nút Dashboard
 
         module_container = tk.Frame(content_frame, bg="#f5e6ca") 
         module_container.pack(fill="both", expand=True)
         current_module_frame = module_container 
 
+        # --- Logic Tải Module (Routing) ---
         if module_name == "Dashboard":
             show_dashboard_content()
         elif module_name == "POS":
@@ -181,12 +194,15 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
             module_frame_instance = create_settings_module(module_container, on_back_to_dashboard_callback)
             module_frame_instance.pack(fill="both",expand=True)
 
+    # --- Helper tạo nút Sidebar ---
     def add_sidebar_button(name, text):
+        """Hàm helper để tạo và lưu nút vào danh sách"""
         btn = ttk.Button(menu_buttons_frame, text=text, style="Sidebar.TButton", 
                          command=lambda n=name: load_module(n))
         btn.pack(fill="x", pady=2, padx=10)
         sidebar_buttons.append({"name": name, "button": btn})
 
+    # (Tạo 10 nút module)
     add_sidebar_button("Dashboard", "Dashboard")
     add_sidebar_button("POS", "Bán hàng (POS)")
     add_sidebar_button("Employees", "Quản lý Nhân viên")
@@ -198,37 +214,45 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     add_sidebar_button("Reports", "Báo cáo & Thống kê")
     add_sidebar_button("Settings", "Cấu hình hệ thống")
 
-    # (Code phím tắt và đăng xuất giữ nguyên)
-    bottom_sidebar_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
-    bottom_sidebar_frame.pack(side="bottom", fill="x", pady=(10, 20))
-    tk.Label(bottom_sidebar_frame, text=f"Xin chào, {username_display}", font=("Segoe UI", 10), bg="#4b2e05", fg="#d7ccc8").pack(pady=(0, 5))
-    
+    # --- Điều hướng Phím tắt ---
     def navigate_up(event=None):
+        """Di chuyển lựa chọn lên trên"""
         nonlocal current_selection_index
         current_selection_index = (current_selection_index - 1) % len(sidebar_buttons)
         module_name = sidebar_buttons[current_selection_index]["name"]
         set_active_button(module_name)
         return "break" 
     def navigate_down(event=None):
+        """Di chuyển lựa chọn xuống dưới"""
         nonlocal current_selection_index
         current_selection_index = (current_selection_index + 1) % len(sidebar_buttons)
         module_name = sidebar_buttons[current_selection_index]["name"]
         set_active_button(module_name)
         return "break"
     def activate_selection(event=None):
+        """Tải module đang được highlight"""
         module_name = sidebar_buttons[current_selection_index]["name"]
         load_module(module_name)
         return "break"
+        
     root.bind_all("<Up>", navigate_up)
     root.bind_all("<Down>", navigate_down)
     root.bind_all("<Return>", activate_selection) 
+
+    # --- Thông tin người dùng & Đăng xuất ---
+    bottom_sidebar_frame = tk.Frame(sidebar_frame, bg="#4b2e05")
+    bottom_sidebar_frame.pack(side="bottom", fill="x", pady=(10, 20))
+    tk.Label(bottom_sidebar_frame, text=f"Xin chào, {username_display}", font=("Segoe UI", 10), bg="#4b2e05", fg="#d7ccc8").pack(pady=(0, 5))
     
     def go_back_to_login():
+        """Đăng xuất, dọn dẹp phím tắt và quay về màn hình Login."""
         if messagebox.askyesno("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", parent=root):
-            print("Đang dọn dẹp phím tắt điều hướng...")
+            
+            # Hủy gán phím tắt
             root.unbind_all("<Up>")
             root.unbind_all("<Down>")
             root.unbind_all("<Return>")
+            
             from app.ui.login_frame import show_login
             show_login(root, on_exit_callback=on_exit_callback) 
             
@@ -239,89 +263,74 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     content_frame = tk.Frame(main_frame, bg="#f5e6ca", relief="flat", bd=1)
     content_frame.grid(row=0, column=1, sticky="nswe", padx=10, pady=10)
     
-    # =========================================================
-    # SỬA 2: NÂNG CẤP UI HÀM create_card
-    # =========================================================
+    
     def create_card(parent, title, value, style_color_prefix, icon_image):
         """
-        Tạo một thẻ KPI (card) trắng với icon (trái) và text (phải)
+        Hàm helper tạo thẻ KPI (card) trắng với icon (trái) và text (phải)
         """
         card = ttk.Frame(parent, style="KPI.TFrame", padding=20)
         card.grid(sticky="nsew", padx=10, pady=10)
-        
-        # Cấu hình co giãn 2 cột (Icon và Text)
         card.grid_rowconfigure(0, weight=1)
         card.grid_rowconfigure(1, weight=1)
         card.grid_columnconfigure(0, weight=0) # Cột Icon (cố định)
         card.grid_columnconfigure(1, weight=1) # Cột Text (co giãn)
 
-        # Cột 0: Icon
         icon_label = ttk.Label(card, image=icon_image, background="#f9fafb")
         icon_label.grid(row=0, column=0, rowspan=2, sticky="ns", padx=(0, 20))
 
-        # Cột 1, Hàng 0: Tiêu đề
         title_label = ttk.Label(card, text=title, style="KPI.Title.TLabel", anchor="w")
         title_label.grid(row=0, column=1, sticky="sw")
         
-        # Cột 1, Hàng 1: Giá trị
         value_style = f"{style_color_prefix}.KPI.Value.TLabel"
         value_label = ttk.Label(card, text=value, style=value_style, anchor="w")
         value_label.grid(row=1, column=1, sticky="nw", pady=(5, 0))
         
         return card 
 
-    # =========================================================
-    # SỬA 3: NÂNG CẤP UI HÀM show_dashboard_content (Tải ảnh)
-    # =========================================================
+    
     def show_dashboard_content():
+        """Hàm hiển thị Dashboard (3 khu vực)"""
+        
         for widget in content_frame.winfo_children():
             widget.destroy()
         
-        content_frame.configure(bg="#f5e6ca") 
+        content_frame.configure(bg="#f5e6ca") # Màu be
         
-        content_frame.grid_rowconfigure(0, weight=0) 
-        content_frame.grid_rowconfigure(1, weight=0) 
-        content_frame.grid_rowconfigure(2, weight=0) 
-        content_frame.grid_rowconfigure(3, weight=1) 
+        # --- Cấu hình Grid chính của Dashboard ---
+        content_frame.grid_rowconfigure(0, weight=0) # Hàng 0: Tiêu đề
+        content_frame.grid_rowconfigure(1, weight=0) # Hàng 1: KPIs
+        content_frame.grid_rowconfigure(2, weight=0) # Hàng 2: Lối tắt
+        content_frame.grid_rowconfigure(3, weight=1) # Hàng 3: Cảnh báo
         content_frame.grid_columnconfigure(0, weight=1)
 
+        # --- Khu vực 1: Tiêu đề Chào mừng ---
         tk.Label(content_frame, text="CHÀO MỪNG ĐẾN VỚI HỆ THỐNG QUẢN LÝ QUÁN CÀ PHÊ",
                  font=("Segoe UI", 18, "bold"), bg="#f5e6ca", fg="#4b2e05", 
                  wraplength=800, justify="center").grid(row=0, column=0, pady=(60, 30), sticky="ew")
         
+        # --- Khu vực 2: Các thẻ KPI ---
         kpi_frame = tk.Frame(content_frame, bg="#f5e6ca")
         kpi_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
-        
         kpi_frame.grid_columnconfigure(0, weight=1)
         kpi_frame.grid_columnconfigure(1, weight=1)
         kpi_frame.grid_columnconfigure(2, weight=1)
 
-        # --- Tải 3 ảnh Icon (Yêu cầu Bước 1 của bạn) ---
-        # (Lưu trữ tham chiếu để chống lỗi garbage collection)
+        # (Lưu trữ tham chiếu ảnh)
         kpi_frame.image_references = []
         try:
-            # Tải ảnh Doanh thu
             img_rev = Image.open(resource_path('app/assets/icon_revenue.png')).resize((48, 48), Image.Resampling.LANCZOS)
             photo_rev = ImageTk.PhotoImage(img_rev)
             kpi_frame.image_references.append(photo_rev)
-
-            # Tải ảnh Đơn hàng
             img_ord = Image.open(resource_path('app/assets/icon_orders.png')).resize((48, 48), Image.Resampling.LANCZOS)
             photo_ord = ImageTk.PhotoImage(img_ord)
             kpi_frame.image_references.append(photo_ord)
-
-            # Tải ảnh Hết hàng
             img_alert = Image.open(resource_path('app/assets/icon_stock_alert.png')).resize((48, 48), Image.Resampling.LANCZOS)
             photo_alert = ImageTk.PhotoImage(img_alert)
             kpi_frame.image_references.append(photo_alert)
-            
         except Exception as e:
-            print(f"Lỗi tải icon Dashboard: {e}. (Đảm bảo 3 file icon_...png đã có trong app/assets/)")
-            # Tạo ảnh trống nếu lỗi
+            print(f"Lỗi tải icon Dashboard: {e}.")
             photo_rev = photo_ord = photo_alert = None
 
-
-        # --- Lấy dữ liệu KPI ---
         try:
             kpi_data = get_dashboard_kpis()
         except Exception as e:
@@ -332,13 +341,10 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
         don_hang_text = f"{int(kpi_data.get('DonHangHomNay') or 0)}"
         het_hang_text = f"{int(kpi_data.get('SPHetHang') or 0)}"
 
-        # --- Tạo 3 thẻ KPI (đã truyền icon) ---
         card1 = create_card(kpi_frame, "Tổng Doanh Thu Hôm Nay", doanh_thu_text, "Blue", photo_rev) 
         card1.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        
         card2 = create_card(kpi_frame, "Đơn Hàng (Đã trả tiền)", don_hang_text, "Green", photo_ord)
         card2.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        
         card3 = create_card(kpi_frame, "Sản Phẩm Hết Hàng", het_hang_text, "Red", photo_alert)
         card3.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
         

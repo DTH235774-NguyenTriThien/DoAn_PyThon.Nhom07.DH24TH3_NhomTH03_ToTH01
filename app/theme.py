@@ -1,19 +1,18 @@
+# app/theme.py
 import tkinter.ttk as ttk
 
 def setup_styles():
+    """Định nghĩa và cấu hình tất cả các style ttk cho ứng dụng."""
+    
     style = ttk.Style()
 
-    #dùng theme "clam" để đảm bảo style hiển thị đầy đủ
+    # Dùng theme "clam" để đảm bảo style hiển thị đầy đủ trên mọi HĐH
     style.theme_use('clam')
 
     base_font = ("Segoe UI", 10, "bold")
     base_padding = (5, 8)
 
-    # 🌿 Style gốc
-    style.configure("CoffeeBase.TButton",
-                    font=base_font,
-                    padding=base_padding,
-                    anchor="center")
+    # --- Style Nút CRUD Tiêu chuẩn ---
 
     # ➕ Thêm
     style.configure("Add.TButton",
@@ -42,7 +41,7 @@ def setup_styles():
     style.map("Delete.TButton",
               background=[("active", "#ffebee")])
 
-    # ✖️ Đóng
+    # ✖️ Đóng / Tải lại
     style.configure("Close.TButton",
                     font=base_font,
                     padding=base_padding,
@@ -51,38 +50,46 @@ def setup_styles():
     style.map("Close.TButton",
               background=[("active", "#efebe9")])
 
-    style.map("Close.TButton",
-              background=[("active", "#efebe9")])
-              
-    # =========================================================
-    # THÊM CÁC STYLE MỚI CHO BỐ CỤC DASHBOARD (Sidebar)
-    # =========================================================
-    
     # --- Màu sắc chủ đề (Theme Colors) ---
-    COLOR_PRIMARY_DARK = "#4b2e05"     # Nâu đậm (Header, Sidebar)
+    COLOR_PRIMARY_DARK = "#4b2e05"   # Nâu đậm (Header, Sidebar)
     COLOR_TEXT_LIGHT = "white"
-    COLOR_DANGER = "#c75c5c"           # Đỏ (Nút Xóa / Đăng xuất)
+    COLOR_DANGER = "#c75c5c"         # Đỏ (Nút Xóa / Đăng xuất)
     COLOR_DANGER_HOVER = "#a94442"
+    COLOR_CONTENT_BG = "#f9fafb"     # Nền trắng của nội dung
+    COLOR_ACCENT = "#a47148"         # Nâu nhạt (Accent)
 
-    # --- Style cho Sidebar (Bố cục Dashboard MỚI) ---
+    # --- Style cho Bố cục Dashboard (Sidebar) ---
     
-    # Nút Sidebar (Sidebar.TButton)
+    # Nút Sidebar (Mặc định)
     style.configure("Sidebar.TButton", 
                     font=("Segoe UI", 12), 
                     foreground=COLOR_TEXT_LIGHT, 
-                    background=COLOR_PRIMARY_DARK, # Nền trùng màu sidebar
+                    background=COLOR_PRIMARY_DARK,
                     borderwidth=0, 
                     focusthickness=0, 
                     focuscolor="none",
                     relief="flat",
-                    anchor="center", # Căn trái chữ
-                    padding=[20, 10, 20, 10]) # Padding (left, top, right, bottom)
+                    anchor="center", # Căn giữa chữ
+                    padding=[20, 10, 20, 10])
     
     style.map("Sidebar.TButton", 
               background=[('active', '#6d4c41')], # Màu khi rê chuột
               foreground=[('active', COLOR_TEXT_LIGHT)])
 
-    # Nút Đăng xuất (Logout.TButton)
+    # Nút Sidebar (Khi đang được chọn)
+    style.configure("Sidebar.Active.TButton",
+                    font=("Segoe UI", 11, "bold"),
+                    anchor="center",
+                    padding=(10, 12),
+                    borderwidth=0,
+                    background=COLOR_CONTENT_BG,    # Nền sáng
+                    foreground=COLOR_PRIMARY_DARK) # Chữ tối
+    
+    style.map("Sidebar.Active.TButton",
+              background=[("active", COLOR_CONTENT_BG)], # Giữ nguyên màu
+              foreground=[("active", COLOR_PRIMARY_DARK)])
+
+    # Nút Đăng xuất
     style.configure("Logout.TButton",
                     font=("Segoe UI", 11, "bold"),
                     foreground=COLOR_TEXT_LIGHT,
@@ -94,24 +101,15 @@ def setup_styles():
               background=[('active', COLOR_DANGER_HOVER)],
               foreground=[('active', COLOR_TEXT_LIGHT)])
     
-
-
     # --- Style cho Báo cáo (KPI Cards) ---
-    style.configure("KPI.TFrame", background="#f9fafb", relief="solid", borderwidth=1)
-    style.configure("KPI.Title.TLabel", background="#f9fafb", foreground=COLOR_PRIMARY_DARK, font=("Segoe UI", 14, "bold"))
-    style.configure("KPI.Value.TLabel", background="#f9fafb", foreground="#a47148", font=("Segoe UI", 28, "bold"))
-
-    # THÊM STYLE CHO NÚT ACTIVE
-    # =========================================================
-    style.configure("Sidebar.Active.TButton",
-                    font=("Segoe UI", 11, "bold"),
-                    anchor="center",
-                    padding=(10, 12),
-                    borderwidth=0,
-                    background="#ffebee",  # Nền sáng (màu content_frame)
-                    foreground="#4b2e05") # Chữ tối (màu sidebar)
+    style.configure("KPI.TFrame", background=COLOR_CONTENT_BG, relief="solid", borderwidth=1)
+    style.configure("KPI.Title.TLabel", background=COLOR_CONTENT_BG, foreground=COLOR_PRIMARY_DARK, font=("Segoe UI", 14, "bold"))
     
-    style.map("Sidebar.Active.TButton",
-              background=[("active", "#ffebee")], # Giữ nguyên màu khi hover/active
-              foreground=[("active", "#4b2e05")])
-    # =========================================================
+    # (Style giá trị KPI màu xanh/lục/đỏ nằm trong mainmenu_frame.py vì chúng đặc thù)
+
+    # Style cho Nút Sản phẩm (POS)
+    style.configure("Product.TButton",
+                    font=("Segoe UI", 10),
+                    padding=(5, 5),
+                    anchor="center",
+                    compound="top")

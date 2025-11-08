@@ -4,6 +4,7 @@
 ├── Doan_Python/
 │   ├── .gitignore
 │   ├── config.ini
+│   ├── main.spec
 │   ├── project_structure.txt
 │   ├── README.md
 │   ├── remember.ini
@@ -15,14 +16,46 @@
 │   │   ├── theme.py
 │   │   ├── __init__.py
 │   │   ├── assets/
+│   │   │   ├── app_icon.ico
+│   │   │   ├── coffee_icon.png
+│   │   │   ├── icon_orders.png
+│   │   │   ├── icon_revenue.png
+│   │   │   ├── icon_stock_alert.png
+│   │   │   ├── fonts/
+│   │   │   │   ├── DejaVuSans.ttf
+│   │   │   ├── products/
+│   │   │   │   ├── bac_xiu.png
+│   │   │   │   ├── banh_croissant.png
+│   │   │   │   ├── banh_tiramisu.png
+│   │   │   │   ├── cam_ep.png
+│   │   │   │   ├── caphe_cotdua.png
+│   │   │   │   ├── caphe_den.png
+│   │   │   │   ├── caphe_sua.png
+│   │   │   │   ├── cappuccino.png
+│   │   │   │   ├── cookie_daxay.png
+│   │   │   │   ├── espresso.png
+│   │   │   │   ├── hat_huongduong.png
+│   │   │   │   ├── latte.png
+│   │   │   │   ├── nuoc_chanh.png
+│   │   │   │   ├── placeholder.png
+│   │   │   │   ├── sinhto_bo.png
+│   │   │   │   ├── sinhto_xoai.png
+│   │   │   │   ├── tradao_camxa.png
+│   │   │   │   ├── tragung_matong.png
+│   │   │   │   ├── trasua_mochi.png
+│   │   │   │   ├── tra_olong.png
+│   │   │   │   ├── tra_sen.png
+│   │   │   │   ├── tra_vai.png
 │   │   ├── modules/
 │   │   │   ├── customers.py
 │   │   │   ├── drinks.py
 │   │   │   ├── employees.py
 │   │   │   ├── ingredients.py
 │   │   │   ├── invoices.py
+│   │   │   ├── pos.py
 │   │   │   ├── recipes.py
 │   │   │   ├── reports.py
+│   │   │   ├── settings.py
 │   │   │   ├── __init__.py
 │   │   ├── ui/
 │   │   │   ├── login_frame.py
@@ -43,24 +76,46 @@
 │   │   │   │   ├── tab_info.py
 │   │   │   │   ├── tab_salary.py
 │   │   │   │   ├── tab_shift.py
+│   ├── build/
+│   │   ├── main/
+│   │   │   ├── Analysis-00.toc
+│   │   │   ├── base_library.zip
+│   │   │   ├── EXE-00.toc
+│   │   │   ├── main.pkg
+│   │   │   ├── PKG-00.toc
+│   │   │   ├── PYZ-00.pyz
+│   │   │   ├── PYZ-00.toc
+│   │   │   ├── warn-main.txt
+│   │   │   ├── xref-main.html
+│   │   │   ├── localpycs/
 │   ├── database/
 │   │   ├── AddEX.sql
+│   │   ├── Add_Image.sql
 │   │   ├── create_db.sql
 │   │   ├── Test_QuanHe_CacKhoa.sql
 │   │   ├── ERD/
 │   │   │   ├── ERD.png
+│   ├── dist/
+│   │   ├── main.exe
 │   ├── docs/
 │   │   ├── README_Project.md
 │   │   ├── Sprint0.md
 │   │   ├── Sprint1.md
 │   │   ├── Sprint2.md
 │   ├── exports/
-│   │   ├── Bảng_Lương_20251027_231718.xlsx
-│   │   ├── Bảng_Lương_20251030_190447.xlsx
+│   │   ├── invoices/
+│   │   │   ├── HoaDon_HD0018  .pdf
+│   │   ├── salarys/
+│   │   │   ├── Bảng_Lương_20251027_231718.xlsx
+│   │   │   ├── Bảng_Lương_20251030_190447.xlsx
+│   │   │   ├── Bảng_Lương_20251102_172150.xlsx
 │   ├── scripts/
 │   │   ├── create_admin.py
 │   │   ├── migrate_passwords.py
 │   │   ├── migrate_units.py
+│   │   ├── seed_customers.py
 │   │   ├── seed_ingredients.py
+│   │   ├── seed_inventory.py
 │   │   ├── seed_products.py
+│   │   ├── seed_products_and_recipes.py
 │   │   ├── test_mssql.py

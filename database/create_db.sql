@@ -7,163 +7,152 @@ GO
 
 
 -- ==== DB: QL_CaPhe
-IF DB_ID(N'QL_CaPhe') IS NOT NULL
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'QL_CaPhe')
 BEGIN
-    ALTER DATABASE QL_CaPhe SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE QL_CaPhe;
+    CREATE DATABASE QL_CaPhe;
 END
 GO
 
--- ----- Create DB -----
-CREATE DATABASE QL_CaPhe;
-GO
 USE QL_CaPhe;
 GO
 
- 
--- ===== TABLE: NhanVien =====
+/* --- Bảng 1: Nhân Viên --- */
 CREATE TABLE NhanVien (
-    MaNV CHAR(6) PRIMARY KEY,
+    MaNV NVARCHAR(10) NOT NULL PRIMARY KEY,
     HoTen NVARCHAR(100) NOT NULL,
     GioiTinh NVARCHAR(10) NULL,
     NgaySinh DATE NULL,
     ChucVu NVARCHAR(50) NULL,
-    LuongCoBan DECIMAL(12,2) DEFAULT 0,
-    TrangThai NVARCHAR(20) DEFAULT N'Đang làm'
+    LuongCoBan DECIMAL(18, 2) NULL, -- (Giả định đây là Lương THEO GIỜ)
+    TrangThai NVARCHAR(50) NOT NULL DEFAULT N'Đang làm'
 );
 GO
 
--- ===== TABLE: KhachHang =====
-CREATE TABLE KhachHang (
-    MaKH CHAR(6) PRIMARY KEY,
-    TenKH NVARCHAR(100) NULL,
-    SDT NVARCHAR(15) NULL,
-    DiemTichLuy INT DEFAULT 0
+/* --- Bảng 2: Tài Khoản (Bảo mật) --- */
+CREATE TABLE TaiKhoan (
+    TenDangNhap NVARCHAR(50) NOT NULL PRIMARY KEY,
+    MatKhauHash NVARCHAR(100) NOT NULL, -- (Lưu trữ Bcrypt hash)
+    Role NVARCHAR(50) NOT NULL,
+    MaNV NVARCHAR(10) NULL,
+    CONSTRAINT FK_TaiKhoan_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV) ON DELETE SET NULL
 );
 GO
 
--- ===== TABLE: SanPham =====
-CREATE TABLE SanPham (
-    MaSP CHAR(6) PRIMARY KEY,
-    TenSP NVARCHAR(150) NOT NULL,
-    LoaiSP NVARCHAR(50) NULL,
-    DonGia DECIMAL(12,2) NOT NULL DEFAULT 0,
-    TrangThai NVARCHAR(20) DEFAULT N'Còn bán'
-);
-GO
-
--- ===== TABLE: HoaDon (hoặc Order) =====
-CREATE TABLE HoaDon (
-    MaHD CHAR(8) PRIMARY KEY,
-    NgayLap DATETIME DEFAULT GETDATE(),
-    MaNV CHAR(6) NOT NULL,                 -- người lập hóa đơn (nhân viên)
-    MaKH CHAR(6) NULL,                     -- khách hàng (nếu có)
-    TongTien DECIMAL(12,2) DEFAULT 0,
-    TrangThai NVARCHAR(20) DEFAULT N'Chưa thanh toán',
-    GhiChu NVARCHAR(255) NULL,
-    CONSTRAINT FK_HoaDon_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV),
-    CONSTRAINT FK_HoaDon_KhachHang FOREIGN KEY (MaKH) REFERENCES KhachHang(MaKH)
-);
-GO
-
--- ===== TABLE: ChiTietHoaDon =====
-CREATE TABLE ChiTietHoaDon (
-    MaHD CHAR(8) NOT NULL,
-    MaSP CHAR(6) NOT NULL,
-    SoLuong INT NOT NULL CHECK (SoLuong > 0),
-    DonGia DECIMAL(12,2) NOT NULL CHECK (DonGia >= 0), -- giá tại thời điểm bán
-    ThanhTien AS (SoLuong * DonGia) PERSISTED,         -- computed persisted
-    PRIMARY KEY (MaHD, MaSP),
-    CONSTRAINT FK_CTHD_HoaDon FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD),
-    CONSTRAINT FK_CTHD_SanPham FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP)
-);
-GO
-
--- ===== TABLE: CaLam (ca làm chuẩn) =====
+/* --- Bảng 3: Ca Làm Việc --- */
 CREATE TABLE CaLam (
-    MaCa INT IDENTITY(1,1) PRIMARY KEY,
-    TenCa NVARCHAR(50) NULL,
-    GioBatDau TIME NULL,
-    GioKetThuc TIME NULL
+    MaCa INT NOT NULL PRIMARY KEY,
+    TenCa NVARCHAR(50) NOT NULL,
+    GioBatDau TIME NOT NULL,
+    GioKetThuc TIME NOT NULL
 );
 GO
 
--- ===== TABLE: ChamCong (attendance) =====
+/* --- Bảng 4: Chấm Công --- */
 CREATE TABLE ChamCong (
-    MaCham INT IDENTITY(1,1) PRIMARY KEY,
-    MaNV CHAR(6) NOT NULL,
+    MaCham INT NOT NULL PRIMARY KEY,
+    MaNV NVARCHAR(10) NULL,
     MaCa INT NULL,
     NgayLam DATE NOT NULL,
     ClockIn DATETIME NULL,
     ClockOut DATETIME NULL,
     GhiChu NVARCHAR(255) NULL,
-    CONSTRAINT FK_ChamCong_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV),
-    CONSTRAINT FK_ChamCong_CaLam FOREIGN KEY (MaCa) REFERENCES CaLam(MaCa)
+    CONSTRAINT FK_ChamCong_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV) ON DELETE SET NULL,
+    CONSTRAINT FK_ChamCong_CaLam FOREIGN KEY (MaCa) REFERENCES CaLam(MaCa) ON DELETE SET NULL
 );
 GO
 
--- ===== TABLE: BangLuong =====
+/* --- Bảng 5: Bảng Lương (Tính theo tháng) --- */
 CREATE TABLE BangLuong (
-    MaLuong INT IDENTITY(1,1) PRIMARY KEY,
-    MaNV CHAR(6) NOT NULL,
+    MaLuong INT IDENTITY(1,1) NOT NULL PRIMARY KEY, -- (Dùng ID tự tăng)
+    MaNV NVARCHAR(10) NULL,
     Thang INT NOT NULL,
     Nam INT NOT NULL,
-    TongGio DECIMAL(10,2) DEFAULT 0,
-    LuongThucTe DECIMAL(12,2) DEFAULT 0,
-    TrangThai NVARCHAR(20) DEFAULT N'Chưa trả',
-    CONSTRAINT FK_BangLuong_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV)
+    TongGio DECIMAL(10, 2) NULL,
+    LuongThucTe DECIMAL(18, 2) NULL,
+    TrangThai NVARCHAR(50) NOT NULL DEFAULT N'Chưa trả',
+    CONSTRAINT FK_BangLuong_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV) ON DELETE SET NULL
 );
 GO
 
--- ===== TABLE: TaiKhoan (accounts / users) =====
-CREATE TABLE TaiKhoan (
-    TenDangNhap NVARCHAR(50) PRIMARY KEY,
-    MatKhauHash NVARCHAR(256) NOT NULL,
-    Role NVARCHAR(20) DEFAULT N'cashier',  -- admin / manager / cashier / barista
-    MaNV CHAR(6) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_TaiKhoan_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV)
+/* --- Bảng 6: Khách Hàng --- */
+CREATE TABLE KhachHang (
+    MaKH NVARCHAR(10) NOT NULL PRIMARY KEY,
+    TenKH NVARCHAR(100) NOT NULL,
+    SDT NVARCHAR(15) NULL,
+    DiemTichLuy INT NOT NULL DEFAULT 0
+    -- (Cột TrangThai đã bị loại bỏ)
 );
 GO
 
--- ===== Optional: Table for inventory / ingredients and recipes =====
+/* --- Bảng 7: Nguyên Liệu (Kho) --- */
 CREATE TABLE NguyenLieu (
-    MaNL CHAR(6) PRIMARY KEY,
-    TenNL NVARCHAR(150),
-    DonVi NVARCHAR(30),
-    SoLuongTon DECIMAL(12,3) DEFAULT 0
+    MaNL NVARCHAR(10) NOT NULL PRIMARY KEY,
+    TenNL NVARCHAR(100) NOT NULL UNIQUE,
+    DonVi NVARCHAR(20) NOT NULL,
+    SoLuongTon DECIMAL(18, 3) NOT NULL DEFAULT 0
 );
 GO
 
+/* --- Bảng 8: Sản Phẩm (Menu) --- */
+CREATE TABLE SanPham (
+    MaSP NVARCHAR(10) NOT NULL PRIMARY KEY,
+    TenSP NVARCHAR(100) NOT NULL,
+    LoaiSP NVARCHAR(50) NULL,
+    DonGia DECIMAL(18, 2) NOT NULL DEFAULT 0,
+    TrangThai NVARCHAR(50) NOT NULL DEFAULT N'Còn bán',
+    ImagePath NVARCHAR(255) NULL 
+);
+GO
+
+/* --- Bảng 9: Công Thức (Liên kết SP và NL) --- */
 CREATE TABLE CongThuc (
-    MaCT INT IDENTITY(1,1) PRIMARY KEY,
-    MaSP CHAR(6) NOT NULL,
-    MaNL CHAR(6) NOT NULL,
-    SoLuong DECIMAL(12,3) NOT NULL, -- quantity of ingredient per product
-    CONSTRAINT FK_CongThuc_SanPham FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP),
-    CONSTRAINT FK_CongThuc_NguyenLieu FOREIGN KEY (MaNL) REFERENCES NguyenLieu(MaNL)
-);  
-GO
-
-CREATE TABLE InventoryMovements (
-    MovementID INT IDENTITY(1,1) PRIMARY KEY,
-    MaNL CHAR(6) NOT NULL,
-    ChangeQty DECIMAL(12,3) NOT NULL,
-    MovementType NVARCHAR(20) NOT NULL, -- sale / purchase / adjust
-    RefMaHD CHAR(8) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_InvMov_NL FOREIGN KEY (MaNL) REFERENCES NguyenLieu(MaNL),
-    CONSTRAINT FK_InvMov_HD FOREIGN KEY (RefMaHD) REFERENCES HoaDon(MaHD)
+    MaSP NVARCHAR(10) NOT NULL,
+    MaNL NVARCHAR(10) NOT NULL,
+    SoLuong DECIMAL(18, 3) NOT NULL,
+    CONSTRAINT PK_CongThuc PRIMARY KEY (MaSP, MaNL),
+    CONSTRAINT FK_CongThuc_SanPham FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP) ON DELETE CASCADE,
+    CONSTRAINT FK_CongThuc_NguyenLieu FOREIGN KEY (MaNL) REFERENCES NguyenLieu(MaNL) ON DELETE CASCADE
 );
 GO
 
-use QL_CaPhe
-go
+/* --- Bảng 10: Hóa Đơn (Thông tin chung) --- */
+CREATE TABLE HoaDon (
+    MaHD NVARCHAR(10) NOT NULL PRIMARY KEY,
+    NgayLap DATETIME NOT NULL DEFAULT GETDATE(),
+    MaNV NVARCHAR(10) NULL,
+    MaKH NVARCHAR(10) NULL, 
+    TongTien DECIMAL(18, 2) NULL,
+    GiamGia DECIMAL(18, 2) NULL,
+    ThanhTien DECIMAL(18, 2) NULL,
+    TrangThai NVARCHAR(50) NOT NULL DEFAULT N'Đã thanh toán',
+    DiemSuDung INT NULL,
+    GhiChu NVARCHAR(255) NULL, 
+    CONSTRAINT FK_HoaDon_NhanVien FOREIGN KEY (MaNV) REFERENCES NhanVien(MaNV) ON DELETE SET NULL,
+    CONSTRAINT FK_HoaDon_KhachHang FOREIGN KEY (MaKH) REFERENCES KhachHang(MaKH) ON DELETE SET NULL
+);
+GO
 
-DECLARE @kw NVARCHAR(10) = '%1%';
-SELECT *
-FROM CaLam
-WHERE CAST(MaCa AS NVARCHAR(10)) LIKE @kw
-   OR TenCa LIKE @kw
-   OR CONVERT(VARCHAR(5), GioBatDau, 108) LIKE @kw
-   OR CONVERT(VARCHAR(5), GioKetThuc, 108) LIKE @kw;
+/* --- Bảng 11: Chi Tiết Hóa Đơn (Các món đã bán) --- */
+CREATE TABLE ChiTietHoaDon (
+    ChiTietID INT IDENTITY(1,1) NOT NULL PRIMARY KEY, 
+    MaHD NVARCHAR(10) NOT NULL,
+    MaSP NVARCHAR(10) NOT NULL,
+    SoLuong INT NOT NULL,
+    DonGia DECIMAL(18, 2) NOT NULL,
+    ThanhTien AS (SoLuong * DonGia),
+    GhiChu NVARCHAR(100) NULL, 
+    CONSTRAINT FK_CTHD_HoaDon FOREIGN KEY (MaHD) REFERENCES HoaDon(MaHD) ON DELETE CASCADE,
+    CONSTRAINT FK_CTHD_SanPham FOREIGN KEY (MaSP) REFERENCES SanPham(MaSP)
+);
+GO
+
+/* --- Bảng 12: Lịch sử Kho */
+CREATE TABLE InventoryMovements (
+    MovementID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    MaNL NVARCHAR(10) NULL,
+    ChangeQty DECIMAL(18, 3) NOT NULL,
+    MovementType NVARCHAR(50),
+    Timestamp DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_Movements_NguyenLieu FOREIGN KEY (MaNL) REFERENCES NguyenLieu(MaNL) ON DELETE SET NULL
+);
+GO

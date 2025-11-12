@@ -5,6 +5,9 @@ select * from ChiTietHoaDon
 select * from congthuc
 select * from SanPham	
 
+USE QL_CaPhe
+GO
+
 -- 1. Thêm cột mới để lưu đường dẫn ảnh
 ALTER TABLE SanPham
 ADD ImagePath NVARCHAR(255) NULL;
@@ -97,12 +100,12 @@ WHERE TenSP = N'Hạt hướng dương';
 GO
 
 UPDATE SanPham
-SET ImagePath = 'app/assets/products/nuoc_chanh.png'
+SET ImagePath = 'app/assets/products/latte.png'
 WHERE TenSP = N'Latte';
 GO
 
 UPDATE SanPham
-SET ImagePath = 'app/assets/products/latte.png'
+SET ImagePath = 'app/assets/products/nuoc_chanh.png'
 WHERE TenSP = N'Nước Chanh';
 GO
 
@@ -134,3 +137,6 @@ UPDATE SanPham
 SET ImagePath = 'app/assets/products/trasua_mochi.png'
 WHERE TenSP = N'Trà Sữa Mochi';
 GO
+
+SELECT * from NhanVien
+select * from TaiKhoan

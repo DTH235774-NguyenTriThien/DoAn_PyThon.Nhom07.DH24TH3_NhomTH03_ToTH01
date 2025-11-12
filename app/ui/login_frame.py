@@ -88,12 +88,13 @@ def show_login(root, on_exit_callback=None):
             user_data = results[0]
             hash_from_db_str = user_data.get("MatKhauHash")
 
-            # Khai báo biến ngay sau khi fetch (để khối 'except' có thể dùng)
+            # === SỬA LỖI: Định nghĩa biến Ở ĐÂY (bên ngoài try) ===
             username_login = user_data.get("TenDangNhap", user) 
             hoten = user_data.get("HoTen")
             role = user_data.get("Role", "Unknown")
             employee_id = user_data.get("MaNV") 
             display_name = hoten or username_login
+            # ====================================================
 
             if not hash_from_db_str:
                  messagebox.showerror("Lỗi Hash", f"Tài khoản [{username_login}] không có mật khẩu (hash bị NULL).")
@@ -125,6 +126,7 @@ def show_login(root, on_exit_callback=None):
                     messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")
             
             except Exception as e:
+                # Bây giờ `username_login` đã tồn tại và có thể hiển thị lỗi
                 messagebox.showerror("Lỗi Hash", f"Lỗi định dạng mật khẩu cho [{username_login}]. Vui lòng chạy script đồng bộ.\n{e}")
         else:
             messagebox.showerror("Sai thông tin", "Tên đăng nhập hoặc mật khẩu không đúng!")

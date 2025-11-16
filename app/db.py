@@ -19,21 +19,6 @@ timeout = config["database"].get("timeout", "30").strip()
 username = config["database"].get("username", "")
 password = config["database"].get("password", "")
 
-
-# ==============================
-# 🔧 Đọc cấu hình từ config.ini
-# ==============================
-config = configparser.ConfigParser()
-config.read(resource_path("config.ini"), encoding="utf-8-sig")
-
-server = config["database"]["server"].strip()
-database = config["database"]["database"].strip()
-driver = config["database"]["driver"].strip()  # {ODBC Driver 17 for SQL Server}
-trusted = config["database"].get("trusted_connection", "no").strip()
-timeout = config["database"].get("timeout", "30").strip()
-username = config["database"].get("username", "").strip()
-password = config["database"].get("password", "").strip()
-
 # ==============================
 # 🔗 Kết nối SQL Server
 # ==============================

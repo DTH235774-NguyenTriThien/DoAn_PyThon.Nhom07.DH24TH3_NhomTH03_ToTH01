@@ -97,7 +97,6 @@ def generate_next_macc(cursor):
             expected += 1
         return expected
     except Exception as e:
-        # (Đã xóa print)
         return 1
 
 def generate_next_maca(cursor):
@@ -120,7 +119,6 @@ def generate_next_maca(cursor):
 
         return expected
     except Exception as e:
-        # (Đã xóa print)
         return 1
     
 def generate_next_manl(cursor):
@@ -142,5 +140,4 @@ def generate_next_manl(cursor):
             next_num += 1
         return f"NL{next_num:03d}"
     except Exception as e:
-        # (Đã xóa print)
         return "NL001"

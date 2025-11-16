@@ -87,14 +87,11 @@ def show_login(root, on_exit_callback=None):
         if results:
             user_data = results[0]
             hash_from_db_str = user_data.get("MatKhauHash")
-
-            # === SỬA LỖI: Định nghĩa biến Ở ĐÂY (bên ngoài try) ===
             username_login = user_data.get("TenDangNhap", user) 
             hoten = user_data.get("HoTen")
             role = user_data.get("Role", "Unknown")
             employee_id = user_data.get("MaNV") 
             display_name = hoten or username_login
-            # ====================================================
 
             if not hash_from_db_str:
                  messagebox.showerror("Lỗi Hash", f"Tài khoản [{username_login}] không có mật khẩu (hash bị NULL).")
@@ -136,7 +133,7 @@ def show_login(root, on_exit_callback=None):
         if on_exit_callback:
             on_exit_callback() 
         else:
-            root.destroy() # Fallback
+            root.destroy() 
 
     btn_login = tk.Button(btn_frame, text="Đăng nhập", bg="#6d4c41", fg="white",
                           font=("Segoe UI", 11, "bold"), width=14, command=check_login, cursor="hand2")

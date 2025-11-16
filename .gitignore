@@ -26,3 +26,8 @@ ERD/
 
 # ===== File Exports lưu trữ file excel từ bảng lương =====
 exports/
+
+# File tạm của PyInstaller
+build/
+dist/
+*.spec

@@ -24,7 +24,7 @@ def show_main_menu(root, username_display, role, on_exit_callback=None, employee
     root.configure(bg="#f5e6ca") 
 
     window_width = 1500
-    window_height = 720
+    window_height = 755
     center_window(root, window_width, window_height, offset_y=-50)
     root.minsize(1200, 600)
     
